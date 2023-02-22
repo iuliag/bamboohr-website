@@ -1152,7 +1152,7 @@ async function loadLazy(doc) {
   addFavIcon('https://www.bamboohr.com/favicon.ico');
 
   // offload martech scripts to web-worker via partytown
-  offloadMartech();
+  // offloadMartech();
 
   if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
     // eslint-disable-next-line import/no-cycle

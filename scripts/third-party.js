@@ -62,39 +62,6 @@ async function instrumentMetadata() {
     */
 }
 
-function getAdobeTagsSrc() {
-    /**
-     * Adobe Tags
-     *
-     * To set a Development Environment, from your browser's Developer Tools' Console run
-     *   localStorage.setItem('Adobe Tags Development Environment', '#')
-     * (where # is 1, 2, 3, 4, or 5) and reload the page.
-     *
-     * To remove the Development Environment, from your browser's Developer Tools' Console run
-     *   localStorage.removeItem('Adobe Tags Development Environment')
-     * and reload the page.
-     */
-    let adobeTagsSrc = 'https://assets.adobedtm.com/ae3ff78e29a2/7f43f668d8a7/launch-';
-    // let adobeTagsSrc = 'http://localhost:8010/proxy/ae3ff78e29a2/7f43f668d8a7/launch-';
-    const adobeTagsDevEnvNumber = (localStorage ? localStorage.getItem('Adobe Tags Development Environment') : undefined);
-    const adobeTagsDevEnvURLList = {
-        1: 'f8d48fe68c86-development.min.js',
-        2: 'c043b6e2b351-development.min.js',
-        3: 'ede0a048d603-development.min.js',
-        4: '7565e018a7a2-development.min.js',
-        5: '30e70f4281a7-development.min.js'
-    };
-    const adobeTagsDevEnv = adobeTagsDevEnvURLList[adobeTagsDevEnvNumber];
-
-    if (adobeTagsDevEnv) {
-        adobeTagsSrc += adobeTagsDevEnv;
-    } else {
-        const isProdSite = /^(marketplace|partners|www)\.bamboohr\.com$/i.test(document.location.hostname);
-        adobeTagsSrc += (isProdSite ? '58a206bf11f0.min.js' : '9e4820bf112c-staging.min.js');
-    }
-    return adobeTagsSrc;
-}
-
 const createScriptElement = (element, src, type, attributes = {}) => {
     const script = document.createElement('script');
     script.src = src;
@@ -123,8 +90,6 @@ const configure = () => {
 // eslint-disable-next-line import/prefer-default-export
 export function offloadMartech() {
     configure();
-    createScriptElement(document.body, 'https://assets.adobedtm.com/51b39232f128/4ef69ac41bda/launch-4fd85596a4b5-development.js', SCRIPT_TYPE_PARTYTOWN);
-    createScriptElement(document.body, '/scripts/offload-run.js', SCRIPT_TYPE_PARTYTOWN);
 
     window.partytown = {
         logCalls: true,
@@ -132,26 +97,16 @@ export function offloadMartech() {
         logSetters: true,
         logStackTraces: false,
         logScriptExecution: true,
+        mainWindowAccessors: ['getExperiment', 'instrumentMetadata'],
         debug: true,
         lib: '/scripts/',
-        mainWindowAccessors: ['instrumentMetadata', 'getExperiment'],
-        globalFns: ['s_gi', 'AppMeasurement', 's', '_satellite'],
-        // globalFns: ['s_gi', 'AppMeasurement', 's', '_satellite',
-        // 'aaPlugins', 'bhr', '_wq', 'getTimeParting',
-        // 'digitalData', adobeDataLayer'],
-        forward: ['adobeDataLayer.push', 'digitalData.push', '_satellite.setVar', '_satellite.getVar', '_satellite.track'],
-        // eslint-disable-next-line
-        resolveUrl: function (url, location, type) {
-            if (type === 'script' && !url.pathname.startsWith('/scripts')) {
-                const proxyUrl = new URL(url);
-                proxyUrl.hostname = 'analytics-proxy.test';
-                proxyUrl.port = url.href.startsWith("https") ? 4443 : 8080;
-                return proxyUrl;
-            }
-            return url;
-        },
     };
 
     // general init of partytown
     import('./partytown.js');
+
+    createScriptElement(document.body, '/scripts/alloy-init.js', SCRIPT_TYPE_PARTYTOWN);
+    createScriptElement(document.body, '/scripts/alloy.min.js', SCRIPT_TYPE_PARTYTOWN);
+    createScriptElement(document.body,'/scripts/alloy-config.js', SCRIPT_TYPE_PARTYTOWN);
+    // createScriptElement(document.body, '/scripts/offload-run.js', SCRIPT_TYPE_PARTYTOWN);
 }

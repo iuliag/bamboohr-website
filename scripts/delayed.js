@@ -16,37 +16,21 @@ import { sampleRUM } from './scripts.js';
 
 sampleRUM('cwv');
 
-/**
- * loads a script by adding a script tag to the head.
- * @param {string} where to load the js file ('header' or 'footer')
- * @param {string} url URL of the js file
- * @param {Function} callback callback on load
- * @param {string} type type attribute of script tag
- * @returns {Element} script element
- */
-function loadScript(location, url, callback, type) {
-  const $head = document.querySelector('head');
-  const $body = document.querySelector('body');
-  const $script = document.createElement('script');
-  $script.src = url;
+const createScriptElement = (element, src, type, attributes = {}) => {
+  const script = document.createElement('script');
+  script.src = src;
   if (type) {
-    $script.setAttribute('type', type);
+    script.type = type;
   }
-  if (location === 'header') {
-    $head.append($script);
-  } else if (location === 'footer') {
-    $body.append($script);
-  }
-  $script.onload = callback;
-  return $script;
-}
+  element.appendChild(script);
 
-// loadScript('footer', 'https://consent.trustarc.com/v2/notice/qvlbs6', null, 'text/javascript');
+  Object.keys(attributes).forEach((key) => {
+    script.setAttribute(key, attributes[key]);
+  });
 
-// loadScript('header', 'https://www.googleoptimize.com/optimize.js?id=OPT-PXL7MPD', null);
+  return script;
+};
 
-/* google tag manager */
-// eslint-disable-next-line
-/*
-(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-ZLCX');
-*/
+createScriptElement(document.body, '/scripts/alloy-init.js', "text/javascript");
+createScriptElement(document.body, '/scripts/alloy.min.js', "text/javascript");
+createScriptElement(document.body,'/scripts/alloy-config.js', "text/javascript");
