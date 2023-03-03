@@ -14,7 +14,7 @@
 import { getMetadata } from './scripts.js';
 import { setObject } from './set-object.min.js';
 
-const SCRIPT_TYPE_PARTYTOWN = 'text/partytown';
+// const SCRIPT_TYPE_PARTYTOWN = 'text/partytown';
 
 function getExperiment() {
     let experiment;
@@ -62,6 +62,7 @@ async function instrumentMetadata() {
     */
 }
 
+/*
 const createScriptElement = (element, src, type, attributes = {}) => {
     const script = document.createElement('script');
     script.src = src;
@@ -76,6 +77,7 @@ const createScriptElement = (element, src, type, attributes = {}) => {
 
     return script;
 };
+*/
 
 const configure = () => {
     window.getExperiment = () => getExperiment();
@@ -107,7 +109,7 @@ export function offloadMartech() {
     import('./partytown.js');
 
     createScriptElement(document.body, '/scripts/alloy-init.js', SCRIPT_TYPE_PARTYTOWN);
-    createScriptElement(document.body, '/scripts/alloy.min.js', SCRIPT_TYPE_PARTYTOWN);
+    createScriptElement(document.body, '/scripts/alloy.js', SCRIPT_TYPE_PARTYTOWN);
     createScriptElement(document.body,'/scripts/alloy-config.js', SCRIPT_TYPE_PARTYTOWN);
     // createScriptElement(document.body, '/scripts/offload-run.js', SCRIPT_TYPE_PARTYTOWN);
     */

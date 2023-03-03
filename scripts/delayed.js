@@ -32,5 +32,5 @@ const createScriptElement = (element, src, type, attributes = {}) => {
 };
 
 createScriptElement(document.body, '/scripts/alloy-init.js', "text/javascript");
-createScriptElement(document.body, '/scripts/alloy.min.js', "text/javascript");
+createScriptElement(document.body, '/scripts/alloy.js', "text/javascript");
 createScriptElement(document.body,'/scripts/alloy-config.js', "text/javascript");
