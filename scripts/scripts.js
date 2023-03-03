@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
+// eslint-disable-next-line import/no-cycle
 import { offloadMartech } from "./third-party.js";
 
 /**
@@ -17,134 +18,67 @@ import { offloadMartech } from "./third-party.js";
  * @param {string} checkpoint identifies the checkpoint in funnel
  * @param {Object} data additional data for RUM sample
  */
-
 export function sampleRUM(checkpoint, data = {}) {
+  sampleRUM.defer = sampleRUM.defer || [];
+  const defer = (fnname) => {
+    sampleRUM[fnname] = sampleRUM[fnname]
+        || ((...args) => sampleRUM.defer.push({ fnname, args }));
+  };
+  sampleRUM.drain = sampleRUM.drain
+      || ((dfnname, fn) => {
+        sampleRUM[dfnname] = fn;
+        sampleRUM.defer
+            .filter(({ fnname }) => dfnname === fnname)
+            .forEach(({ fnname, args }) => sampleRUM[fnname](...args));
+      });
+  sampleRUM.always = sampleRUM.always || [];
+  sampleRUM.always.on = (chkpnt, fn) => { sampleRUM.always[chkpnt] = fn; };
+  sampleRUM.on = (chkpnt, fn) => { sampleRUM.cases[chkpnt] = fn; };
+  defer('observe');
+  defer('cwv');
+  defer('convert');
   try {
     window.hlx = window.hlx || {};
     if (!window.hlx.rum) {
       const usp = new URLSearchParams(window.location.search);
-      const weight = usp.get('rum') === 'on' ? 1 : 100; // with parameter, weight is 1. Defaults to 100.
+      const weight = (usp.get('rum') === 'on') ? 1 : 100; // with parameter, weight is 1. Defaults to 100.
       // eslint-disable-next-line no-bitwise
-      const hashCode = (s) => s.split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0);
-      const id = `${hashCode(window.location.href)}-${new Date().getTime()}-${Math.random()
-        .toString(16)
-        .substr(2, 14)}`;
+      const hashCode = (s) => s.split('').reduce((a, b) => (((a << 5) - a) + b.charCodeAt(0)) | 0, 0);
+      const id = `${hashCode(window.location.href)}-${new Date().getTime()}-${Math.random().toString(16).substr(2, 14)}`;
       const random = Math.random();
-      const isSelected = random * weight < 1;
+      const isSelected = (random * weight < 1);
       // eslint-disable-next-line object-curly-newline
-      window.hlx.rum = { weight, id, random, isSelected };
+      window.hlx.rum = { weight, id, random, isSelected, sampleRUM };
     }
-    const { random, weight, id } = window.hlx.rum;
-    if (random && random * weight < 1) {
-      const sendPing = () => {
+    const { weight, id } = window.hlx.rum;
+    if (window.hlx && window.hlx.rum && window.hlx.rum.isSelected) {
+      const sendPing = (pdata = data) => {
         // eslint-disable-next-line object-curly-newline, max-len, no-use-before-define
-        const body = JSON.stringify({
-          weight,
-          id,
-          referer: window.location.href,
-          // eslint-disable-next-line no-use-before-define
-          generation: RUM_GENERATION,
-          checkpoint,
-          ...data,
-        });
+        const body = JSON.stringify({ weight, id, referer: window.location.href, generation: window.hlx.RUM_GENERATION, checkpoint, ...data }, (key, value) => (key === 'element' ? undefined : value));
         const url = `https://rum.hlx.page/.rum/${weight}`;
         // eslint-disable-next-line no-unused-expressions
         navigator.sendBeacon(url, body);
+        // eslint-disable-next-line no-console
+        console.debug(`ping:${checkpoint}`, pdata);
       };
-      sendPing();
-      // special case CWV
-      if (checkpoint === 'cwv') {
-        // use classic script to avoid CORS issues
-        const script = document.createElement('script');
-        script.src = 'https://rum.hlx.page/.rum/web-vitals/dist/web-vitals.iife.js';
-        script.onload = () => {
-          const storeCWV = (measurement) => {
-            data.cwv = {};
-            data.cwv[measurement.name] = measurement.value;
-            sendPing();
-          };
-          // When loading `web-vitals` using a classic script, all the public
-          // methods can be found on the `webVitals` global namespace.
-          window.webVitals.getCLS(storeCWV);
-          window.webVitals.getFID(storeCWV);
-          window.webVitals.getLCP(storeCWV);
-        };
-        document.head.appendChild(script);
-      }
+      sampleRUM.cases = sampleRUM.cases || {
+        cwv: () => sampleRUM.cwv(data) || true,
+        lazy: () => {
+          // use classic script to avoid CORS issues
+          const script = document.createElement('script');
+          script.src = 'https://rum.hlx.page/.rum/@adobe/helix-rum-enhancer@^1/src/index.js';
+          document.head.appendChild(script);
+          return true;
+        },
+      };
+      sendPing(data);
+      if (sampleRUM.cases[checkpoint]) { sampleRUM.cases[checkpoint](); }
     }
-  } catch (e) {
+    if (sampleRUM.always[checkpoint]) { sampleRUM.always[checkpoint](data); }
+  } catch (error) {
     // something went wrong
   }
 }
-
-sampleRUM.blockobserver = window.IntersectionObserver
-  ? new IntersectionObserver(
-      (entries) => {
-        entries
-          .filter((entry) => entry.isIntersecting)
-          .forEach((entry) => {
-            sampleRUM.blockobserver.unobserve(entry.target); // observe only once
-            const target = sampleRUM.targetselector(entry.target);
-            const source = sampleRUM.sourceselector(entry.target);
-            sampleRUM('viewblock', { target, source });
-          });
-      },
-      { threshold: 0.25 }
-    )
-  : { observe: () => {} };
-
-sampleRUM.mediaobserver = window.IntersectionObserver
-  ? new IntersectionObserver(
-      (entries) => {
-        entries
-          .filter((entry) => entry.isIntersecting)
-          .forEach((entry) => {
-            sampleRUM.mediaobserver.unobserve(entry.target); // observe only once
-            const target = sampleRUM.targetselector(entry.target);
-            const source = sampleRUM.sourceselector(entry.target);
-            sampleRUM('viewmedia', { target, source });
-          });
-      },
-      { threshold: 0.25 }
-    )
-  : { observe: () => {} };
-
-sampleRUM.observe = (elements) => {
-  elements.forEach((element) => {
-    if (
-      element.tagName.toLowerCase() === 'img' ||
-      element.tagName.toLowerCase() === 'video' ||
-      element.tagName.toLowerCase() === 'audio' ||
-      element.tagName.toLowerCase() === 'iframe'
-    ) {
-      sampleRUM.mediaobserver.observe(element);
-    } else {
-      sampleRUM.blockobserver.observe(element);
-    }
-  });
-};
-
-sampleRUM.targetselector = (element) => {
-  let value = element.getAttribute('href') || element.currentSrc || element.getAttribute('src');
-  if (value && value.startsWith('https://')) {
-    // resolve relative links
-    value = new URL(value, window.location).href;
-  }
-  return value;
-};
-
-sampleRUM.sourceselector = (element) => {
-  if (element === document.body || element === document.documentElement || !element) {
-    return undefined;
-  }
-  if (element.id) {
-    return `#${element.id}`;
-  }
-  if (element.getAttribute('data-block-name')) {
-    return `.${element.getAttribute('data-block-name')}`;
-  }
-  return sampleRUM.sourceselector(element.parentElement);
-};
 
 /**
  * Loads a CSS file.
@@ -182,14 +116,14 @@ export function getMetadata(name) {
  * @param {string} name The unsanitized name
  * @returns {string} The class name
  */
- export function toClassName(name) {
+export function toClassName(name) {
   return name && typeof name === 'string' ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-') : '';
 }
 
 /**
  * Loads a template specific CSS file.
  */
- function loadTemplateCSS() {
+function loadTemplateCSS() {
   const template = toClassName(getMetadata('template'));
   if (template) {
     const templates = ['bhr-comparison', 'bhr-home', 'ee-solution', 'hr-glossary', 'hr-software-payroll', 'hr-unplugged',
@@ -268,15 +202,15 @@ export async function fetchPlaceholders(prefix = 'default') {
     window.placeholders[`${prefix}-loaded`] = new Promise((resolve, reject) => {
       try {
         fetch(`${prefix === 'default' ? '' : prefix}/placeholders.json`)
-          .then((resp) => resp.json())
-          .then((json) => {
-            const placeholders = {};
-            json.data.forEach((placeholder) => {
-              placeholders[toCamelCase(placeholder.Key)] = placeholder.Text;
+            .then((resp) => resp.json())
+            .then((json) => {
+              const placeholders = {};
+              json.data.forEach((placeholder) => {
+                placeholders[toCamelCase(placeholder.Key)] = placeholder.Text;
+              });
+              window.placeholders[prefix] = placeholders;
+              resolve();
             });
-            window.placeholders[prefix] = placeholders;
-            resolve();
-          });
       } catch (e) {
         // error loading placeholders
         window.placeholders[prefix] = {};
@@ -315,11 +249,11 @@ export function decorateBlock(block) {
   blockWrapper.classList.add(`${shortBlockName}-wrapper`);
 
   [...block.classList]
-    .filter((filter) => filter.match(/^content-width-/g))
-    .forEach((style) => {
-      block.parentElement.classList.add(style);
-      block.classList.remove(style);
-    });
+      .filter((filter) => filter.match(/^content-width-/g))
+      .forEach((style) => {
+        block.parentElement.classList.add(style);
+        block.classList.remove(style);
+      });
   // eslint-disable-next-line no-use-before-define
   addClassToParent(block);
 }
@@ -382,60 +316,60 @@ export function decorateBackgrounds($section) {
     'bg-top-multi-11-mobile'];
   const sectionKey = [...$section.parentElement.children].indexOf($section);
   [...$section.classList]
-    .filter((filter) => filter.match(/^bg-/g))
-    .forEach((style, bgKey) => {
-      const background = document.createElement('span');
-      const fetchBase = window.hlx.serverPath;
-      const sizes = ['', 'laptop', 'tablet', 'mobile'];
+      .filter((filter) => filter.match(/^bg-/g))
+      .forEach((style, bgKey) => {
+        const background = document.createElement('span');
+        const fetchBase = window.hlx.serverPath;
+        const sizes = ['', 'laptop', 'tablet', 'mobile'];
 
-      background.classList.add('bg', style);
+        background.classList.add('bg', style);
 
-      if (!style.startsWith('bg-gradient') && !style.startsWith('bg-solid')) {
-        // get svgs
-        sizes.forEach((size, sizeKey) => {
-          let name = style;
+        if (!style.startsWith('bg-gradient') && !style.startsWith('bg-solid')) {
+          // get svgs
+          sizes.forEach((size, sizeKey) => {
+            let name = style;
 
-          if (size) name += `-${size}`;
+            if (size) name += `-${size}`;
 
-          if (!missingBgs.includes(name)) {
-            fetch(`${fetchBase}${window.hlx.codeBasePath}/styles/backgrounds/${name}.svg`).then(
-              (resp) => {
-                // skip if not success
-                if (resp.status !== 200) return;
+            if (!missingBgs.includes(name)) {
+              fetch(`${fetchBase}${window.hlx.codeBasePath}/styles/backgrounds/${name}.svg`).then(
+                  (resp) => {
+                    // skip if not success
+                    if (resp.status !== 200) return;
 
-                // put the svg in the span
-                resp.text().then((output) => {
-                  const element = document.createElement('div');
-                  let html = output;
+                    // put the svg in the span
+                    resp.text().then((output) => {
+                      const element = document.createElement('div');
+                      let html = output;
 
-                  // get IDs
-                  const matches = html.matchAll(/id="([^"]+)"/g);
-                  // replace IDs
-                  [...matches].forEach(([, match], matchKey) => {
-                    html = html.replaceAll(
-                      match,
-                      `${match}-id-${sectionKey}-${bgKey}-${sizeKey}-${matchKey}`
-                    );
-                  });
+                      // get IDs
+                      const matches = html.matchAll(/id="([^"]+)"/g);
+                      // replace IDs
+                      [...matches].forEach(([, match], matchKey) => {
+                        html = html.replaceAll(
+                            match,
+                            `${match}-id-${sectionKey}-${bgKey}-${sizeKey}-${matchKey}`
+                        );
+                      });
 
-                  element.innerHTML = html;
-                  const svg = element.firstChild;
+                      element.innerHTML = html;
+                      const svg = element.firstChild;
 
-                  svg.classList.add(size || 'desktop');
+                      svg.classList.add(size || 'desktop');
 
-                  background.append(svg);
-                  $section.classList.add('has-bg');
-                });
-              }
-            );
-          }
-        });
-      }
-      if (style.startsWith('bg-gradient') || style.startsWith('bg-solid')) {
-        $section.classList.add('has-bg');
-      }
-      $section.prepend(background);
-    });
+                      background.append(svg);
+                      $section.classList.add('has-bg');
+                    });
+                  }
+              );
+            }
+          });
+        }
+        if (style.startsWith('bg-gradient') || style.startsWith('bg-solid')) {
+          $section.classList.add('has-bg');
+        }
+        $section.prepend(background);
+      });
 }
 
 /**
@@ -465,11 +399,13 @@ export function decorateSections($main) {
       const meta = readBlockConfig(sectionMeta);
       const keys = Object.keys(meta);
       keys.forEach((key) => {
-        const styleValues = meta.style.split(',').map((t) => t.trim());
-        styleValues.forEach((style) => {
-          if (key === 'style') section.classList.add(toClassName(style));
-          else section.dataset[key] = meta[key];
-        });
+        if (key === 'style') {
+          section.classList.add(...meta.style.split(', ').map(toClassName));
+        } else if (key === 'anchor') {
+          section.id = toClassName(meta.anchor);
+        } else {
+          section.dataset[toCamelCase(key)] = meta[key];
+        }
       });
       decorateBackgrounds(section);
       sectionMeta.remove();
@@ -488,7 +424,7 @@ export function updateSectionsStatus(main) {
     const status = section.getAttribute('data-section-status');
     if (status !== 'loaded') {
       const loadingBlock = section.querySelector(
-        '.block[data-block-status="initialized"], .block[data-block-status="loading"]'
+          '.block[data-block-status="initialized"], .block[data-block-status="loading"]'
       );
       if (loadingBlock) {
         section.setAttribute('data-section-status', 'loading');
@@ -510,8 +446,8 @@ export function updateSectionsStatus(main) {
  */
 export function decorateBlocks(main) {
   main
-    .querySelectorAll('div.section div[class]:not(.default-content-wrapper)')
-    .forEach((block) => decorateBlock(block));
+      .querySelectorAll('div.section div[class]:not(.default-content-wrapper)')
+      .forEach((block) => decorateBlock(block));
 }
 
 /**
@@ -551,10 +487,10 @@ export function buildBlock(blockName, content) {
  */
 export async function loadBlock(block, eager = false) {
   if (
-    !(
-      block.getAttribute('data-block-status') === 'loading' ||
-      block.getAttribute('data-block-status') === 'loaded'
-    )
+      !(
+          block.getAttribute('data-block-status') === 'loading' ||
+          block.getAttribute('data-block-status') === 'loaded'
+      )
   ) {
     block.setAttribute('data-block-status', 'loading');
     const blockName = block.getAttribute('data-block-name');
@@ -607,10 +543,10 @@ export async function loadBlocks(main) {
  * @param {Array} breakpoints breakpoints and corresponding params (eg. width)
  */
 export function createOptimizedPicture(
-  src,
-  alt = '',
-  eager = false,
-  breakpoints = [{ media: '(min-width: 400px)', width: '2000' }, { width: '750' }]
+    src,
+    alt = '',
+    eager = false,
+    breakpoints = [{ media: '(min-width: 400px)', width: '2000' }, { width: '750' }]
 ) {
   const url = new URL(src, window.location.href);
   const picture = document.createElement('picture');
@@ -769,7 +705,7 @@ initHlx();
  */
 
 const LCP_BLOCKS = ['hero', 'featured-articles']; // add your LCP blocks to the list
-const RUM_GENERATION = 'project-1'; // add your RUM generation information here
+window.hlx.RUM_GENERATION = 'bamboo-rum-conversion-1'; // add your RUM generation information here
 
 sampleRUM('top');
 
@@ -783,11 +719,8 @@ window.addEventListener('error', (event) => {
 
 window.addEventListener('load', () => sampleRUM('load'));
 
-document.addEventListener('click', (event) => {
-  sampleRUM('click', {
-    target: sampleRUM.targetselector(event.target),
-    source: sampleRUM.sourceselector(event.target),
-  });
+window.addEventListener('window.digitalData.push', () => {
+  console.debug("window.digitalData.push!!!");
 });
 
 if (!window.hlx.suppressLoadPage) loadPage(document);
@@ -829,19 +762,19 @@ export function decorateButtons(block = document) {
           $up.classList.add('button-container');
         }
         if (
-          $up.childNodes.length === 1 &&
-          $up.tagName === 'STRONG' &&
-          $twoup.childNodes.length === 1 &&
-          $twoup.tagName === 'P'
+            $up.childNodes.length === 1 &&
+            $up.tagName === 'STRONG' &&
+            $twoup.childNodes.length === 1 &&
+            $twoup.tagName === 'P'
         ) {
           $a.className = 'button accent';
           $twoup.classList.add('button-container');
         }
         if (
-          $up.childNodes.length === 1 &&
-          $up.tagName === 'EM' &&
-          $twoup.childNodes.length === 1 &&
-          $twoup.tagName === 'P'
+            $up.childNodes.length === 1 &&
+            $up.tagName === 'EM' &&
+            $twoup.childNodes.length === 1 &&
+            $twoup.tagName === 'P'
         ) {
           $a.className = 'button accent light';
           $twoup.classList.add('button-container');
@@ -894,8 +827,8 @@ export function buildFigure(blockEl) {
   // content is picture only, no caption or link
   if (blockEl?.firstElementChild) {
     if (
-      blockEl.firstElementChild.nodeName === 'PICTURE' ||
-      blockEl.firstElementChild.nodeName === 'VIDEO'
+        blockEl.firstElementChild.nodeName === 'PICTURE' ||
+        blockEl.firstElementChild.nodeName === 'VIDEO'
     ) {
       figEl.append(blockEl.firstElementChild);
     } else if (blockEl.firstElementChild.nodeName === 'P') {
@@ -903,8 +836,8 @@ export function buildFigure(blockEl) {
       pEls.forEach((pEl) => {
         if (pEl.firstElementChild) {
           if (
-            pEl.firstElementChild.nodeName === 'PICTURE' ||
-            pEl.firstElementChild.nodeName === 'VIDEO'
+              pEl.firstElementChild.nodeName === 'PICTURE' ||
+              pEl.firstElementChild.nodeName === 'VIDEO'
           ) {
             figEl.append(pEl.firstElementChild);
           } else if (pEl.firstElementChild.nodeName === 'EM') {
@@ -964,7 +897,7 @@ export async function lookupPages(pathnames, collection, sheet = '') {
   return result;
 }
 
-export function loadHeader(header) {
+export async function loadHeader(header) {
   const queryParams = new Proxy(new URLSearchParams(window.location.search), {
     get: (searchParams, prop) => searchParams.get(prop),
   });
@@ -973,7 +906,7 @@ export function loadHeader(header) {
   const headerBlock = buildBlock(headerblockName, '');
   header.append(headerBlock);
   decorateBlock(headerBlock);
-  loadBlock(headerBlock);
+  await loadBlock(headerBlock);
 }
 
 function loadFooter(footer) {
@@ -1022,9 +955,9 @@ async function buildAutoBlocks(main) {
     }
 
     if (
-      template === 'job-description' ||
-      template === 'resources-guides' ||
-      template === 'performance-reviews'
+        template === 'job-description' ||
+        template === 'resources-guides' ||
+        template === 'performance-reviews'
     ) {
       buildPageHeader(main, template);
     }
@@ -1061,6 +994,92 @@ export async function decorateMain(main) {
   window.setTimeout(() => sampleRUM.observe(main.querySelectorAll('picture > img')), 1000);
 }
 
+/**
+ * Returns the label used for tracking link clicks
+ * @param {Element} element link element
+ * @returns link label used for tracking converstion
+ */
+function getLinkLabel(element) {
+  return element.title ? toClassName(element.title) : toClassName(element.textContent);
+}
+
+function findConversionValue(parent, fieldName) {
+  // Try to find the element by Id or Name
+  const valueElement = document.getElementById(fieldName) || parent.querySelector(`[name='${fieldName}']`);
+  if (valueElement) {
+    return valueElement.value;
+  }
+  // Find the element by the inner text of the label
+  return Array.from(parent.getElementsByTagName('label'))
+      .filter(l => l.innerText.trim().toLowerCase() === fieldName.toLowerCase())
+      .map(label => document.getElementById(label.htmlFor))
+      .filter(field => !!field)
+      .map(field => field.value)
+      .pop();
+}
+
+/**
+ * Registers conversion listeners according to the metadata configured in the document.
+ * @param {Element} parent element where to find potential event conversion sources
+ * @param {string} path fragment path when the parent element is coming from a fragment
+ */
+export async function initConversionTracking(parent, path) {
+  const conversionElements = {
+    form: () => {
+      // Track all forms
+      parent.querySelectorAll('form').forEach((element) => {
+        const section = element.closest('div.section');
+        if (section.dataset.conversionValueField) {
+          const cvField = section.dataset.conversionValueField.trim();
+          // this will track the value of the element with the id specified in the "Conversion Element" field.
+          // ideally, this should not be an ID, but the case-insensitive name label of the element.
+          sampleRUM.convert(undefined, (cvParent) => findConversionValue(cvParent, cvField), element, ['submit']);
+        }
+        const formConversionName = section.dataset.conversionName || getMetadata('conversion-name');
+        if (formConversionName) {
+          sampleRUM.convert(formConversionName, undefined, element, ['submit']);
+        } else {
+          // if no conversion name is specified, use the form path or id
+          sampleRUM.convert(path ? toClassName(path) : element.id, undefined, element, ['submit']);
+        }
+      });
+    },
+    link: () => {
+      // track all links
+      Array.from(parent.querySelectorAll('a[href]'))
+          .map(element => ({
+            element,
+            cevent: getMetadata(`conversion-name--${getLinkLabel(element)}-`) || getMetadata('conversion-name') || getLinkLabel(element),
+          }))
+          .forEach(({ element, cevent }) => {
+            sampleRUM.convert(cevent, undefined, element, ['click'])
+          });
+    },
+    'labeled-link': () => {
+      // track only the links configured in the metadata
+      const linkLabels = getMetadata('conversion-link-labels') || '';
+      const trackedLabels = linkLabels.split(',')
+          .map((p) => p.trim())
+          .map(toClassName);
+
+      Array.from(parent.querySelectorAll('a[href]'))
+          .filter((element) => trackedLabels.includes(getLinkLabel(element)))
+          .map(element => ({
+            element,
+            cevent: getMetadata(`conversion-name--${getLinkLabel(element)}-`) || getMetadata('conversion-name') || getLinkLabel(element),
+          }))
+          .forEach(({ element, cevent }) => {
+            sampleRUM.convert(cevent, undefined, element, ['click']);
+          });
+    }
+  };
+
+  const declaredConversionElements = getMetadata('conversion-element') ? getMetadata('conversion-element').split(',').map((ce) => toClassName(ce.trim())) : [];
+
+  Object.keys(conversionElements)
+      .filter((ce) => declaredConversionElements.includes(ce))
+      .forEach((cefn) => conversionElements[cefn]());
+}
 /**
  * loads everything related to Marketing technology that must be loaded eagerly
  * (e.g., Adobe Target).
@@ -1145,19 +1164,22 @@ async function loadLazy(doc) {
   const element = hash ? main.querySelector(hash) : false;
   if (hash && element) element.scrollIntoView();
 
-  loadHeader(header);
+  const headerloaded = loadHeader(header);
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   addFavIcon('https://www.bamboohr.com/favicon.ico');
 
-  // offload martech scripts to web-worker via partytown
-  // offloadMartech();
-
   if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
     // eslint-disable-next-line import/no-cycle
     import('../tools/preview/experimentation-preview.js');
   }
+  sampleRUM('lazy');
+  await headerloaded;
+  initConversionTracking(document);
+
+  // offload martech scripts to web-worker via partytown
+  offloadMartech();
 }
 
 function loadDelayedOnClick() {
@@ -1342,3 +1364,144 @@ if (params.get('performance')) {
     if (mod.default) mod.default();
   });
 }
+
+/**
+ * Registers the 'convert' function to `sampleRUM` which sends
+ * variant and convert events upon conversion.
+ * The function will register a listener for an element if listenTo parameter is provided.
+ * listenTo supports 'submit' and 'click'.
+ * If listenTo is not provided, the information is used to track a conversion event.
+ */
+sampleRUM.drain('convert', (cevent, cvalueThunk, element, listenTo = []) => {
+  async function trackConversion(celement) {
+    const MAX_SESSION_LENGTH = 1000 * 60 * 60 * 24 * 30; // 30 days
+    try {
+      // get all stored experiments from local storage (unified-decisioning-experiments)
+      const experiments = JSON.parse(localStorage.getItem('unified-decisioning-experiments'));
+      if (experiments) {
+        Object.entries(experiments)
+            .map(([experiment, { treatment, date }]) => ({ experiment, treatment, date }))
+            .filter(({ date }) => Date.now() - new Date(date) < MAX_SESSION_LENGTH)
+            .forEach(({ experiment, treatment }) => {
+              // send conversion event for each experiment that has been seen by this visitor
+              sampleRUM('variant', { source: experiment, target: treatment });
+            });
+      }
+      // send conversion event
+      const cvalue = typeof cvalueThunk === 'function' ? await cvalueThunk(element) : cvalueThunk;
+      sampleRUM('convert', { source: cevent, target: cvalue, element: celement });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log('error reading experiments', e);
+    }
+  }
+
+  function registerConversionListener(elements) {
+    // if elements is an array or nodelist, register a conversion event for each element
+    if (Array.isArray(elements) || elements instanceof NodeList) {
+      elements.forEach(e => registerConversionListener(e, listenTo, cevent, cvalueThunk));
+    } else {
+      listenTo.forEach(eventName => element.addEventListener(eventName, (e) => trackConversion(e.target)));
+    }
+  }
+
+  if (element && listenTo.length) {
+    registerConversionListener(element, listenTo, cevent, cvalueThunk);
+  } else {
+    trackConversion(element, cevent, cvalueThunk);
+  }
+});
+
+// Declare conversionEvent, bufferTimeoutId and tempConversionEvent outside the convert function to persist them for buffering between
+// subsequent convert calls
+let bufferTimeoutId;
+let conversionEvent;
+let tempConversionEvent;
+
+// call upon conversion events, sends them to alloy
+sampleRUM.always.on('convert', async (data) => {
+  const {element} = data;
+  // eslint-disable-next-line no-undef
+  if (element && alloy) {
+    if (element.tagName === 'FORM') {
+      conversionEvent = {
+        event: "Form Complete",
+        ...(data.source ? {conversionName: data.source} : {}),
+        ...(data.target ? {conversionValue: data.target} : {}),
+      };
+
+      if (conversionEvent.event === "Form Complete" && (data.target === undefined || data.source === undefined)) {
+        // If a buffer has already been set and tempConversionEvent exists, merge the two conversionEvent objects to send to alloy
+        if (bufferTimeoutId !== undefined && tempConversionEvent !== undefined) {
+          conversionEvent = {...tempConversionEvent, ...conversionEvent}
+        } else {
+          // Temporarily hold the conversionEvent object until the timeout is complete
+          tempConversionEvent = {...conversionEvent};
+
+          // If there is partial form conversion data, set the timeout buffer to wait for additional data
+          bufferTimeoutId = setTimeout(async () => {
+            // eslint-disable-next-line
+            await alloy("sendEvent", {
+              "documentUnloading": true,
+              "xdm": {
+                "eventType": "web.formFilledOut",
+                "_sitesinternal": {
+                  "formId": `${element.id}`,
+                  "formComplete": 1,
+                  "conversion": {
+                    ...(conversionEvent.conversionName ? {"conversionName": `${conversionEvent.conversionName}`} : {}),
+                    ...(conversionEvent.conversionValue ? {"conversionValue": `${conversionEvent.conversionValue}`} : {}),
+                  },
+                }
+              },
+              "data": {
+                "conversion": {
+                  ...(conversionEvent.conversionName ? {"conversionName": `${conversionEvent.conversionName}`} : {}),
+                  ...(conversionEvent.conversionValue ? {"conversionValue": `${conversionEvent.conversionValue}`} : {}),
+                },
+              }
+            });
+            tempConversionEvent = undefined;
+            conversionEvent = undefined;
+          }, 100);
+        }
+      }
+    } else if (element.tagName === 'A') {
+      conversionEvent = {
+        event: "Link Click",
+        ...(data.source ? {conversionName: data.source} : {}),
+        ...(data.target ? {conversionValue: data.target} : {}),
+      };
+      // eslint-disable-next-line
+      await alloy("sendEvent", {
+        "documentUnloading": true,
+        "xdm": {
+          "eventType": "web.webinteraction.linkClicks",
+          "web": {
+            "webInteraction": {
+              "linkURL": `${element.href}`,
+              "name": `${element.innerHTML}`,
+              "linkClicks": {
+                "value": 1,
+              }
+            }
+          },
+          "_sitesinternal": {
+            "conversion": {
+              ...(conversionEvent.conversionName ? {"conversionName": `${conversionEvent.conversionName}`} : {}),
+              ...(conversionEvent.conversionValue ? {"conversionValue": `${conversionEvent.conversionValue}`} : {}),
+            },
+          }
+        },
+        "data": {
+          "conversion": {
+            ...(conversionEvent.conversionName ? {"conversionName": `${conversionEvent.conversionName}`} : {}),
+            ...(conversionEvent.conversionValue ? {"conversionValue": `${conversionEvent.conversionValue}`} : {}),
+          },
+        }
+      });
+      tempConversionEvent = undefined;
+      conversionEvent = undefined;
+    }
+  }
+});

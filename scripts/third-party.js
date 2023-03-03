@@ -20,8 +20,8 @@ function getExperiment() {
     let experiment;
     if (window.hlx.experiment) {
         experiment = {
-            id: window.hlx.experiment.id,
-            variant: window.hlx.experiment.selectedVariant,
+            experimentId: window.hlx.experiment.id,
+            experimentVariant: window.hlx.experiment.selectedVariant,
         };
     }
     return experiment;
@@ -91,6 +91,7 @@ const configure = () => {
 export function offloadMartech() {
     configure();
 
+    /*
     window.partytown = {
         logCalls: true,
         logGetters: true,
@@ -109,4 +110,5 @@ export function offloadMartech() {
     createScriptElement(document.body, '/scripts/alloy.min.js', SCRIPT_TYPE_PARTYTOWN);
     createScriptElement(document.body,'/scripts/alloy-config.js', SCRIPT_TYPE_PARTYTOWN);
     // createScriptElement(document.body, '/scripts/offload-run.js', SCRIPT_TYPE_PARTYTOWN);
+    */
 }
