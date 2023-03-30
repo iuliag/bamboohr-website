@@ -10,6 +10,9 @@
  * governing permissions and limitations under the License.
  */
 
+// eslint-disable-next-line import/no-cycle
+import { offloadMartech } from "./third-party.js";
+
 /**
  * log RUM if part of the sample.
  * @param {string} checkpoint identifies the checkpoint in funnel
@@ -1179,6 +1182,9 @@ async function loadLazy(doc) {
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   addFavIcon('https://www.bamboohr.com/favicon.ico');
+
+  // offload martech scripts to web-worker via partytown
+  offloadMartech();
 
   if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
     // eslint-disable-next-line import/no-cycle
