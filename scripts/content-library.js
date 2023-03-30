@@ -6,23 +6,23 @@ function buildLandingPage(main) {
   
   let partners = getMetadata('partner');
   let logos = '';
+  let partnerLogos = '<img src="/assets/partner-logos/color-250/bamboohr.svg" alt="BambooHR logo" />';
   if (partners) {
     partners = [...partners.split(', ')];
-    let partnerLogos = '<img src="/assets/partner-logos/color-250/bamboohr.svg" alt="BambooHR logo" />';
     partners.forEach((partner) => {
       partnerLogos += `<img src="/assets/partner-logos/color-250/${toClassName(partner)}.svg" alt="${partner} logo" />`;
     });
-    logos = `<p class="form-logos">${partnerLogos}</p>`;
   }
+  logos = `<p class="form-logos">${partnerLogos}</p>`;
 
-  const category = getMetadata('category');
-  const formTitle = getMetadata('form-title') || `Download your free ${category.slice(0, -1)}`;
+  const resourceType = window.location.pathname.replace('/resources/','').split('/');
+  const formTitle = getMetadata('form-title') || `Download your free ${resourceType[0].slice(0, -1)}`;
   const formSubheading = getMetadata('form-subheading') || 'All you need to do is complete the form below.';
   blockContent.push(`<p><strong>${formTitle}</strong></p><p>${formSubheading}</p>${logos}<p>form</p>`);
   
   const section = document.createElement('div');
   const block = buildBlock('form', [blockContent]);
-  block?.classList?.add('grid-7-5', 'has-content', 'old-style');
+  block?.classList?.add('grid-7-5', 'has-content');
   section.prepend(block);
   main.innerHTML = section.outerHTML;
 }

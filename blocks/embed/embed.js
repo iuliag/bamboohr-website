@@ -1,13 +1,17 @@
 import { buildFigure } from '../../scripts/scripts.js';
 
-const loadScript = (url, callback, type) => {
+const loadScript = (url, callback, type, section, defer) => {
   const head = document.querySelector('head');
   const script = document.createElement('script');
   script.src = url;
   if (type) {
     script.setAttribute('type', type);
   }
-  head.append(script);
+  if (defer && script.src) {
+    script.defer = defer;
+  }
+  if (section) section.append(script);
+  else head.append(script);
   script.onload = callback;
   return script;
 };
@@ -29,6 +33,26 @@ const embedYoutube = (url) => {
       <iframe src="https://www.youtube.com${vid ? `/embed/${vid}?rel=0&amp;v=${vid}` : embed}" style="border: 0; top: 0; left: 0; width: 100%; height: 100%; position: absolute;" allow="encrypted-media; accelerometer; gyroscope; picture-in-picture" allowfullscreen="" scrolling="no" title="Content from Youtube" loading="lazy"></iframe>
     </div>`;
   return embedHTML;
+};
+
+const embedEraPodcast = () => {
+  const section = document.createElement('section');
+  section.role = 'main';
+  section.ariaLabel = 'Listen to The Era podcast';
+
+  loadScript('https://fast.wistia.com/assets/external/channel.js', null, null, section, true);
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fast.wistia.com/embed/channel/project/sp8xvfyav9/font.css';
+  section.append(link);
+  
+  const podcastContainer = document.createElement('div');
+  podcastContainer.classList = 'wistia_channel wistia_async_sp8xvfyav9 mode=inline';
+  podcastContainer.style = 'min-height:100vh;position:relative;width:100%;';
+  section.append(podcastContainer);
+
+  return section;
 };
 
 const embedInstagram = (url) => {
@@ -125,6 +149,10 @@ const EMBEDS_CONFIG = {
     type: 'adobe-spark',
     embed: embedSpark,
   },
+  'era-podcast': {
+    type: 'era-podcast',
+    embed: embedEraPodcast,
+  },
   instagram: {
     type: 'instagram',
     embed: embedInstagram,
@@ -152,40 +180,52 @@ const loadEmbed = (block) => {
     return;
   }
 
-  const a = block.querySelector('a');
-  const figure = buildFigure(block.firstElementChild.firstElementChild);
+  let isEraPodcast = false;
+  if (block.classList.contains('era-podcast')) isEraPodcast = true;
 
-  if (a) {
-    const url = new URL(a.href.replace(/\/$/, ''));
-    const hostnameArr = url.hostname.split('.');
+  let config = null;
 
-    // trimed domain name (ex, www.google.com -> google)
-    const simpleDomain = hostnameArr[hostnameArr.length - 2];
+  if (isEraPodcast) {
+    config = EMBEDS_CONFIG['era-podcast'];
 
-    // getting config
-    let config = EMBEDS_CONFIG[simpleDomain];
+    block.append(config.embed());
+    block.classList.add('block', 'embed', `embed-${config.type}`, 'is-loaded');
+  } else {
+    const a = block.querySelector('a');
+    const figure = buildFigure(block.firstElementChild?.firstElementChild);
+  
+    if (a) {
+      const url = new URL(a.href.replace(/\/$/, ''));
+      const hostnameArr = url.hostname.split('.');
 
-    // for different config for same domain:
-    if (url.hostname.includes('adobe')) {
-      if (url.hostname.includes('spark.adobe.com')) {
-        config = EMBEDS_CONFIG['adobe-spark'];
-      } else {
-        config = EMBEDS_CONFIG['adobe-tv'];
+      // trimed domain name (ex, www.google.com -> google)
+      const simpleDomain = hostnameArr[hostnameArr.length - 2];
+
+      // getting config
+      config = EMBEDS_CONFIG[simpleDomain];
+
+      // for different config for same domain:
+      if (url.hostname.includes('adobe')) {
+        if (url.hostname.includes('spark.adobe.com')) {
+          config = EMBEDS_CONFIG['adobe-spark'];
+        } else {
+          config = EMBEDS_CONFIG['adobe-tv'];
+        }
+      } else if (url.hostname.includes('youtu')) {
+        config = EMBEDS_CONFIG.youtube;
       }
-    } else if (url.hostname.includes('youtu')) {
-      config = EMBEDS_CONFIG.youtube;
-    }
 
-    // loading embed function for given config and url.
-    if (config) {
-      a.outerHTML = config.embed(url);
-      block.classList.add('block', 'embed', `embed-${config.type}`);
-    } else {
-      a.outerHTML = getDefaultEmbed(url);
-      block.classList.add('block', 'embed', `embed-${simpleDomain}`);
+      // loading embed function for given config and url.
+      if (config) {
+        a.outerHTML = config.embed(url);
+        block.classList.add('block', 'embed', `embed-${config.type}`);
+      } else {
+        a.outerHTML = getDefaultEmbed(url);
+        block.classList.add('block', 'embed', `embed-${simpleDomain}`);
+      }
+      block.innerHTML = figure.outerHTML;
+      block.classList.add('is-loaded');
     }
-    block.innerHTML = figure.outerHTML;
-    block.classList.add('is-loaded');
   }
 };
 

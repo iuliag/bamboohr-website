@@ -357,21 +357,11 @@ main .section .hero p.button-container {
 }
 
 /* wrapper */
-.hero-container.triple-hex>.hero-wrapper {
-  --wrapper-height: 750;
-
-  min-height: calc((var(--wrapper-height) / var(--container-width)) * 100vw);
-}
-
-@media (min-width: 600px) {
-  .hero-container.triple-hex>.hero-wrapper {
-    --wrapper-height: 725;
-  }
-}
-
 @media (min-width: 1025px) {
   .hero-container.triple-hex>.hero-wrapper {
     --wrapper-height: 630;
+
+    min-height: calc((var(--wrapper-height) / var(--container-width)) * 100vw);
   }
 }
 
@@ -387,31 +377,25 @@ main .section .hero p.button-container {
   padding: 0;
 }
 
+@media (max-width: 1024px) {
+  .hero.triple-hex {
+    padding-top: 30px;
+    flex-direction: column;
+  }
+}
+
 /* content area */
 .hero.triple-hex>div:first-child {
-  --content-height: 340;
-  --content-width: 100%;
-
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   justify-content: center;
-  max-width: 650px;
-  min-height: calc((var(--content-height) / var(--container-width)) * 100vw);
   padding: 0;
-  width: calc((var(--content-width) / var(--container-width)) * 100vw);
 }
 
-@media (max-width: 599px) {
+@media (max-width: 1024px) {
   .hero.triple-hex>div:first-child {
     text-align: center;
-  }
-}
-
-@media (min-width: 600px) {
-  .hero.triple-hex>div:first-child {
-    --content-height: 470;
-    --content-width: 425;
   }
 }
 
@@ -419,6 +403,10 @@ main .section .hero p.button-container {
   .hero.triple-hex>div:first-child {
     --content-height: 620;
     --content-width: 650;
+
+    min-height: calc((var(--content-height) / var(--container-width)) * 100vw);
+    width: calc((var(--content-width) / var(--container-width)) * 100vw);
+    max-width: 650px;
   }
 }
 
@@ -460,12 +448,6 @@ main .section .hero p.button-container {
   line-height: 1.4286;
 }
 
-@media (min-width: 600px) and (max-width: 1024px) {
-  .hero.triple-hex>div:first-child p {
-    margin-right: calc((60 / var(--container-width)) * 100vw);
-  }
-}
-
 /* images */
 .hero.triple-hex .image-group-container {
   --image-right: 15;
@@ -473,11 +455,11 @@ main .section .hero p.button-container {
   --image-width: 320;
 
   padding: 0;
-  position: absolute;
   right: calc((var(--image-right) / var(--container-width)) * 100vw);
   top: calc((var(--image-top) / var(--container-width)) * 100vw);
   width: calc((var(--image-width) / var(--container-width)) * 100vw);
   z-index: -1;
+  margin: 30px auto 0;
 }
 
 @media (min-width: 600px) {
@@ -493,6 +475,9 @@ main .section .hero p.button-container {
     --image-right: 10;
     --image-top: 60;
     --image-width: 630;
+
+    position: absolute;
+    margin-top: 0;
   }
 }
 

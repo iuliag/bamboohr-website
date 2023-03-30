@@ -86,6 +86,13 @@ export default function decorate(block) {
 
     // add card to block
     card.classList.add('card');
-    block.append(card);
+
+    if (block.classList.contains('cta')) {
+      const ctaContainer = createElem('div', 'cta-container');
+      ctaContainer.append(iconContainer);
+      ctaContainer.append(card);
+
+      block.append(ctaContainer);
+    } else block.append(card);
   });
 }

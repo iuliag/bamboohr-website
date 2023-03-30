@@ -105,6 +105,10 @@
   grid-template-areas: 'count - sortby' 'facets facets facets' 'results results results';
 }
 
+.hrvs-listing main .listing-search {
+  display: none;
+}
+
 .hrvs-listing main .listing-sortby {
   display: none;
   grid-area: sortby;
@@ -434,8 +438,9 @@
   width: 286px;
 }
 
-.hrvs-listing .metadata-content .content-image img {
-  width: 400px;
+.hrvs-listing .metadata-content .content-image picture {
+  width: 155px;
+  display: block;
 }
 
 .hrvs-listing .metadata-content-wrapper {

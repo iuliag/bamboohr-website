@@ -1,22 +1,23 @@
-main .speaker {
+main .speakers ul {
   --cols: 1;
 
   display: grid;
   gap: 40px;
   grid-template-columns: repeat(var(--cols), 1fr);
+  list-style-type: none;
 }
 
 @media (min-width: 600px) {
-    main .speaker.style-2-columns{
+    main .speakers.style-2-columns ul{
         --cols: 2;
     }
 }
 
-main .speaker .speaker-profile {
+main .speakers .speaker-card {
   text-align: center;
 }
 
-main .speaker .speaker-profile .speaker-name {
+main .speakers .speaker-card .speaker-name {
   font-family: var(--heading-font-family);
   font-size: 20px;
   font-weight: 600;
@@ -24,15 +25,15 @@ main .speaker .speaker-profile .speaker-name {
   color: var(--color-gray-12);
 }
 
-main .speaker .speaker-profile .speaker-position {
+main .speakers .speaker-card .speaker-position {
   margin: 4px 0 30px;
 }
 
-main .speaker .speaker-profile .speaker-image img {
+main .speakers .speaker-card .speaker-image img {
   border-radius: 50%;
   margin-bottom: 30px;
 }
 
-main .speaker .speaker-profile .speaker-bio {
+main .speakers .speaker-card .speaker-bio {
   text-align: left;
 }

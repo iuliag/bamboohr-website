@@ -264,6 +264,13 @@
   transform: translateY(-50%);
 }
 
+@media (min-width: 900px) {
+  .has-bg > span[class*='bg-left-'] {
+    max-width: 50%;
+    margin-right: auto;
+  }
+}
+
 /* multi 1 */
 .has-bg > span.bg-left-multi-1 {
   /* uses defaults */
@@ -343,6 +350,13 @@
   justify-content: end;
   top: 50%;
   transform: translateY(-50%);
+}
+
+@media (min-width: 900px) {
+  .has-bg > span[class*='bg-right-'] {
+    max-width: 50%;
+    margin-left: auto;
+  }
 }
 
 /* multi 1 */
@@ -646,6 +660,10 @@
 
 .has-bg > span.bg-gradient-tint-15-v-3 {
   background-image: linear-gradient(180deg, var(--color-white) 0%, var(--theme-tint15) 80%);
+}
+
+.has-bg > span.bg-gradient-tint-10 {
+  background-image: linear-gradient(var(--color-white) 0%, var(--theme-tint10) 100%);
 }
 
 .has-bg > span.bg-gradient-tint-15-reverse {

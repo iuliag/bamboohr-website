@@ -53,7 +53,9 @@ function loadTrustArcFormScript() {
   const n = ['init', 'shouldShowGPCBanner', 'setGPCSubmitted', 'destroy'];
   n.forEach(o => {
     r.irm[o] = r.irm[o] ||
+      // eslint-disable-next-line func-names
       (function (t) {
+        // eslint-disable-next-line func-names
         return function (...args) {
           r.irm.push([t, args]);
         };

@@ -6,6 +6,10 @@ main .call-to-action-container {
     background-repeat: no-repeat;
 }
 
+.hr-101-guide main .call-to-action-container {
+    background-color: var(--color-1-shade-5);
+}
+
 main .call-to-action,
 .pricing-quote main .call-to-action {
     text-align: center;

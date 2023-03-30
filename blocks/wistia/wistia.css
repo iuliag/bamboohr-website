@@ -8,7 +8,6 @@
     --radius: .5rem;
     --width: 26.5rem;
 
-    background-color: var(--color-gray-2);
     border-radius: var(--radius);
     cursor: pointer;
     display: grid;
@@ -41,8 +40,8 @@
 }
 
 
-.block.wistia picture::before,
-.block.wistia picture::after {
+.block.wistia:not(.hide-play) picture::before,
+.block.wistia:not(.hide-play) picture::after {
     content: '';
     place-self: center;
     z-index: 1;

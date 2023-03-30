@@ -1,6 +1,7 @@
 .webinar main .form-container {
   background-color: var(--color-gray-1);
-  padding: 20px 0;
+  padding-top: 20px;
+  padding-bottom: 20px;
 }
 
 @media (min-width: 1200px) {

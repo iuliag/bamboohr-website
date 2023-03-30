@@ -62,6 +62,8 @@ export function sortOptions(sortBy) {
                               : a.category.localeCompare(b.category),
     publicationDate: (a, b) => b.publicationDate.localeCompare(a.publicationDate)
                                 || a.title.localeCompare(b.title),
+    eventDate: (a, b) => a.eventDate.localeCompare(b.eventDate),
+    eventDateDesc: (a, b) => b.eventDate.localeCompare(a.eventDate),
     lastModified: (a, b) => b.lastModified.localeCompare(a.lastModified)
                               || a.block.localeCompare(b.block),
     presenter: (a, b) => a.presenter.localeCompare(b.presenter),

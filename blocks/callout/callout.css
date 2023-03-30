@@ -8,6 +8,12 @@ main .callout {
   box-shadow: 0 30px 60px -40px var(--category-box-shadow-color);
 }
 
+.hr-101-guide main .callout {
+  background-image: url('./bg/green-cta.svg');
+  color: var(--color-1-tint-15);
+  box-shadow: 0 30px 60px -40px rgba(29 147 54 / 50%);
+}
+
 main .callout.left,
 main .callout.right {
   text-align: left;
@@ -16,6 +22,10 @@ main .callout.right {
 main .callout a.button {
   background-color: var(--category-color);
   margin: 40px 0 0;
+}
+
+.hr-101-guide main .callout a.button {
+  background-color: var(--color-1-shade-5);
 }
 
 main .callout.left a.button,
@@ -32,6 +42,10 @@ main .callout h3 {
   font-family: var(--heading-font-family);
 }
 
+.hr-101-guide main .callout h3 {
+  color: var(--color-1-shade-5);
+}
+
 main .callout.left h3,
 main .callout.right h3 {
   font-size: 20px;
@@ -43,6 +57,10 @@ main .callout.right h3 {
 
 main .callout p {
   color: var(--category-darker-color);
+}
+
+.hr-101-guide main .callout p {
+  color: var(--color-1-shade-10);
 }
 
 .integrations.app-list main .callout {

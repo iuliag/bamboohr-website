@@ -142,7 +142,8 @@ body.pricing-quote {
   visibility: hidden;
 }
 
-.pricing-quote .multi-cta-cards > div > div > h4 + p {
+.pricing-quote .multi-cta-cards > div > div > h4 + p,
+.pricing-quote .multi-cta-cards > div > div > h6 + p {
   font-size: 16px;
   line-height: 24px;
 }

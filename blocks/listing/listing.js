@@ -3,6 +3,7 @@ import {
   getMetadata,
   createOptimizedPicture,
   fetchPlaceholders,
+  loadCSS,
   readBlockConfig,
   readIndex,
   toCamelCase,
@@ -10,58 +11,136 @@ import {
   toClassName,
 } from '../../scripts/scripts.js';
 import { createAppCard, sortOptions } from '../app-cards/app-cards.js';
+import decorateWistia from '../wistia/wistia.js';
 
-function createArticleCard(article, classPrefix, eager = false) {
-  const title = article.title.split(' - ')[0];
+let gLoadWistiaCSS = true;
+
+function getLinkText(format, mediaType) {
+  let linkText = 'Read Now';
+  if (format) linkText = format.toLowerCase() === 'video' ? 'Watch Now' : 'Read Now';
+  else if (mediaType) {
+    switch (mediaType.toLowerCase()) {
+      case 'watch':
+        linkText = 'Watch Now';
+        break;
+      case 'listen':
+        linkText = 'Listen Now';
+        break;
+      case 'read':
+      case 'tools':
+      default:
+        linkText = 'Read Now';
+        break;
+    }
+  }
+
+  return linkText;
+}
+
+export function createArticleCard(article, classPrefix, customLinkText = '', eager = false) {
+  const title = article.title.split(' | ')[0];
   const card = document.createElement('div');
-  const articleFormat = article?.format || '';
+  const productCategory = (article.planType && article.productArea) ? `${article.planType} | ${article.productArea}` : '';
+  const articleCategory = article.category || article.topic || productCategory
+    || article.contentType || article.brandedContent || '';
+  const articleFormat = article?.format || article?.mediaType || '';
   card.className = `${classPrefix}-card`;
-  card.setAttribute('am-region', `${article.category} . ${articleFormat}`.toUpperCase());
-  const image = article.cardImage || article.image;
-  const pictureString = createOptimizedPicture(
-    image,
-    article.imageAlt || article.title,
-    eager,
-    [{ width: 750 }],
-  ).outerHTML;
-  const category = toCategory(article.category);
-  const watchOrRead = articleFormat?.toLowerCase() === 'video' ? 'Watch Now' : 'Read Now';
+  card.setAttribute('am-region', `${articleCategory} . ${articleFormat}`.toUpperCase());
+  let articlePicture = '';
+  let wistiaBlock = '';
+  if (article.wistiaVideoId) {
+    wistiaBlock = `<div class="wistia block">
+        <a href="https://bamboohr.wistia.com/medias/${article.wistiaVideoId}"></a>
+      </div>`;
+  } else {
+    const image = article.cardImage || article.image;
+    const pictureString = createOptimizedPicture(
+      image,
+      article.imageAlt || article.title,
+      eager,
+      [{ width: 750 }],
+    ).outerHTML;
+
+    articlePicture = `<div class="${classPrefix}-card-picture">
+        <a href="${article.path}">${pictureString}</a>
+      </div>`;
+  }
+  const articleImage = articlePicture || wistiaBlock;
+  const category = toCategory(articleCategory);
+  const linkText = customLinkText || getLinkText(article?.format, article?.mediaType);
+
+  const isProductUpdates = window.location.pathname.includes('/product-updates/');
+  let releaseDate = '';
+  if (isProductUpdates && article.publicationDate) {
+    const [year, month, day] = article.publicationDate.split('-');
+    releaseDate = `<div class="typ-small-info">Date of release: ${month}/${day}/${year}</div>`;
+  } 
+  
+
+  const articleFormatSpan = articleFormat ? `<span class="${classPrefix}-card-format">${articleFormat}</span>` : '';
+
   card.innerHTML = `<div class="${classPrefix}-card-header category-color-${category}">
-    <span class="${classPrefix}-card-category">${article.category}</span> 
-    <span class="${classPrefix}-card-format">${articleFormat || ''}</span>
+    <span class="${classPrefix}-card-category">${articleCategory}</span> 
+    ${articleFormatSpan}
     </div>
-    <div class="${classPrefix}-card-picture"><a href="${article.path}">${pictureString}</a></div>
+    ${articleImage}
     <div class="${classPrefix}-card-body" am-region="${title}">
     <h5>${article?.presenter || ''}</h5>
     <h3>${title}</h3>
+    ${releaseDate}
     <p>${article.description}</p>
-    <p><a href="${article.path}">${watchOrRead}</a></p>
+    <p><a href="${article.path}">${linkText}</a></p>
     </div>`;
   return (card);
 }
 
-function getBlockHTML(ph, theme) {
-  const defaultSortText = (theme === 'hrvs') ? ph.category : ph.default;
-  const defaultSortProp = (theme === 'hrvs') ? 'hrvsCategory' : 'level';
-  const pageSortOptions = (theme === 'hrvs')
-    ? `<li data-sort="hrvsCategory">${ph.category}</li>
+export function loadWistiaBlock(article, articleCard) {
+  if (article.wistiaVideoId) {
+    const wistiaBlock = articleCard.querySelector('.wistia.block');
+
+    if (wistiaBlock) {
+      decorateWistia(wistiaBlock);
+
+      if (gLoadWistiaCSS) {
+        // load css
+        const cssBase = `${window.hlx.serverPath}${window.hlx.codeBasePath}`;
+        loadCSS(`${cssBase}/blocks/wistia/wistia.css`, null);
+        gLoadWistiaCSS = false;
+      }
+    }
+  }
+}
+
+function getBlockHTML(ph, theme, indexConfig = {}) {
+  let defaultSortText = ph.default;
+  let defaultSortProp = 'level';
+  let pageSortOptions = `<li data-sort="level">${ph.default}</li>
+    <li data-sort="name">${ph.name}</li>
+    <li data-sort="publicationDate">${ph.newest}</li>`;
+  if (theme === 'hrvs') {
+    defaultSortText = ph.category;
+    defaultSortProp = 'hrvsCategory';
+    pageSortOptions = `<li data-sort="hrvsCategory">${ph.category}</li>
       <li data-sort="startTime">${ph.startTime}</li>
       <li data-sort="presenter">${ph.presenter}</li>
-      <li data-sort="title">${ph.title}</li>`
-    : `<li data-sort="level">${ph.default}</li>
-      <li data-sort="name">${ph.name}</li>
-      <li data-sort="publicationDate">${ph.newest}</li>`;
+      <li data-sort="title">${ph.title}</li>`;
+  } else if (indexConfig.facetStyle === 'taxonomyV1') {
+    defaultSortText = ph.newest;
+    defaultSortProp = 'publicationDate';
+    pageSortOptions = `<li data-sort="publicationDate">${ph.newest}</li>
+      <li data-sort="title">${ph.title}</li>`;
+  }
   return /* html */ `
   <p class="listing-results-count"><span id="listing-results-count"></span> ${ph.results}</p>
   <div class="listing-facets">
   </div>
+  <div class="listing-search"><input id="fulltext" placeholder="${ph.typeToSearch}" /></div>
   <div class="listing-sortby">
     <div class="listing-filter-button">${ph.filter}</div>
     <p class="listing-sort-button">${ph.sortBy} <span data-sort="${defaultSortProp}" id="listing-sortby">${defaultSortText}</span></p>
     <ul>
       ${pageSortOptions}
     </ul>
-  </div>
   </div>
   <ul class="listing-results">
   </ul>`;
@@ -121,6 +200,10 @@ export async function filterResults(theme, config, facets = {}, indexConfig = {}
       if (row[key]) {
         const rowValues = row[key].split(',').map((t) => t.trim());
         matched = tokens[key].some((t) => rowValues.includes(t));
+      }
+      if (key === 'fulltext') {
+        const {fulltext} = config;
+        matched = row.title.toLowerCase().includes(fulltext.toLowerCase()) || row.description.toLowerCase().includes(fulltext.toLowerCase());
       }
       filterMatches[key] = matched;
       return matched;
@@ -184,7 +267,9 @@ export default async function decorate(block, blockName) {
   const themeOverride = themeOverrides[0] ? themeOverrides[0].substring(firstHyphenIdx) : '';
   const theme = themeOverride || getMetadata('theme');
   const ph = await fetchPlaceholders('/integrations');
-  const indexConfig = {indexPath: '', indexName: '', cardStyle: ''};
+  const indexConfig = {indexPath: '', indexName: '', cardStyle: '', facetStyle: '', customLinkText: '', excludeSearch: ''};
+
+  let excludeSearch = '';
 
   const addEventListeners = (elements, event, callback) => {
     elements.forEach((e) => {
@@ -200,7 +285,12 @@ export default async function decorate(block, blockName) {
     indexConfig.indexPath = blockConfig['index-path'];
     indexConfig.indexName = blockConfig['index-name'];
     indexConfig.cardStyle = blockConfig['card-style'];
+    indexConfig.facetStyle = blockConfig['facet-style'] || 'taxonomyV1';
+    indexConfig.customLinkText = blockConfig['custom-link-text'];
+    indexConfig.excludeSearch = blockConfig['exclude-search'];
+    excludeSearch = indexConfig.excludeSearch;
   } else {
+    excludeSearch = 'yes';
     Object.keys(blockConfig).forEach((key) => {
       config[toCamelCase(key)] = blockConfig[key];
     });
@@ -211,7 +301,7 @@ export default async function decorate(block, blockName) {
     ctaBlockInfo = document.createElement('div');
     ctaBlockInfo.append(block.firstElementChild);
   }
-  block.innerHTML = getBlockHTML(ph, theme);
+  block.innerHTML = getBlockHTML(ph, theme, indexConfig);
 
   const resultsElement = block.querySelector('.listing-results');
   const facetsElement = block.querySelector('.listing-facets');
@@ -376,15 +466,31 @@ export default async function decorate(block, blockName) {
     block.querySelector('#listing-results-count').textContent = getHRVSVisibleCount();
   };
 
+  const highlightResults = (res) => {
+    const fulltext = document.getElementById('fulltext').value;
+    if (fulltext) {
+      res.querySelectorAll('h4 a').forEach((title) => {
+        const content = title.textContent;
+        const offset = content.toLowerCase().indexOf(fulltext.toLowerCase());
+        if (offset >= 0) {
+          title.innerHTML = `${content.substr(0, offset)}<span class="highlight">${content.substr(offset, fulltext.length)}</span>${content.substr(offset + fulltext.length)}`;
+        }
+      });
+    }
+  };
+
   const displayResults = async (results) => {
     if (theme === 'hrvs') displayHRVSResults(results);
     else {
       resultsElement.innerHTML = '';
       results.forEach((product) => {
         if (indexConfig.cardStyle === 'article') {
-          resultsElement.append(createArticleCard(product, theme.toLowerCase()));
+          const articleCard = createArticleCard(product, 'listing-article', indexConfig.customLinkText);
+          resultsElement.append(articleCard);
+          loadWistiaBlock(product, articleCard);
         } else resultsElement.append(createAppCard(product, blockName));
       });
+      highlightResults(resultsElement);
     }
 
     window.setTimeout(() => {
@@ -396,13 +502,31 @@ export default async function decorate(block, blockName) {
 
   const runSearch = async (filterConfig = config) => {
     let facets = {};
-    facets = {
-      category: {},
-      businessSize: {},
-      dataFlow: {},
-      industryServed: {},
-      locationRestrictions: {},
-    };
+    if (indexConfig.facetStyle === 'taxonomyV1') {
+      facets = {
+        topic: {},
+        planType: {},
+        productArea: {},
+        contentType: {},
+        brandedContent: {},
+        mediaType: {},
+        authorSpeaker: {},
+        contentSize: {},
+        industry: {},
+        companySize: {},
+        companyGrowthStage: {},
+        userRole: {},
+      };
+    } else {
+      facets = {
+        category: {},
+        businessSize: {},
+        dataFlow: {},
+        industryServed: {},
+        locationRestrictions: {},
+      };
+    }
+    
     const results = await filterResults(theme, filterConfig, facets, indexConfig);
     // eslint-disable-next-line no-nested-ternary
     const sortBy = document.getElementById('listing-sortby')
@@ -413,7 +537,7 @@ export default async function decorate(block, blockName) {
     block.querySelector('#listing-results-count').textContent = results.length;
     displayResults(results, null);
     // eslint-disable-next-line no-use-before-define
-    displayFacets(facets, filterConfig);
+    displayFacets(facets, filterConfig, results.length);
   };
 
   const createFilterConfig = () => {
@@ -424,6 +548,7 @@ export default async function decorate(block, blockName) {
       if (filterConfig[facetKey]) filterConfig[facetKey] += `, ${facetValue}`;
       else filterConfig[facetKey] = facetValue;
     });
+    filterConfig.fulltext = document.getElementById('fulltext').value;
     return filterConfig;
   };
 
@@ -443,7 +568,7 @@ export default async function decorate(block, blockName) {
     selectSort(event.target);
   });
 
-  const displayFacets = (facets, filters) => {
+  const displayFacets = (facets, filters, resultsCount) => {
     const rawFilters = getSelectedFilters().map((check) => check.value);
     const selected = config.category
       ? rawFilters.filter((filter) => filter !== config.category)
@@ -524,7 +649,10 @@ export default async function decorate(block, blockName) {
                                     : b.toLowerCase() === 'keynote' ? 1
                                     : a.localeCompare(b));
       } else facetValues.sort();
-      if (facetValues.length) {
+      if (facetValues.length 
+          && (facetValues.length !== 1 
+              || filterValues.includes(facetValues[0]) 
+              || facets[facetKey][facetValues[0]] < resultsCount)) {
         const div = document.createElement('div');
         div.className = 'listing-facet';
         const h3 = document.createElement('h3');
@@ -606,6 +734,16 @@ export default async function decorate(block, blockName) {
       }
     });
   };
+
+  // search box
+  const fulltextElement = block.querySelector('#fulltext');
+  fulltextElement.addEventListener('input', () => {
+    runSearch(createFilterConfig());
+  });
+  
+  if (excludeSearch && excludeSearch.toLowerCase() === 'yes') {
+    fulltextElement.style.display = 'none';
+  }
 
   runSearch(config);
 }

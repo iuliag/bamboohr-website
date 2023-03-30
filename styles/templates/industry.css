@@ -2,7 +2,7 @@
   row-gap: 15px;
 }
 
-.industry main .multi-element.hero .content p {
+.industry main .multi-element.hero .content:not(.extra) p {
   margin-bottom: 10px;
 }
 

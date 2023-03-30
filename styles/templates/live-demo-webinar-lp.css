@@ -1,0 +1,51 @@
+.live-demo-webinar-lp-success main {
+  padding: 50px 0;
+}
+
+@media (min-width: 900px) {
+  .live-demo-webinar-lp-success main {
+    padding: 100px 0;
+  }
+}
+
+.live-demo-webinar-lp-success .columns.live-demo-webinar-thanks {
+  margin-bottom: 80px;
+}
+
+.live-demo-webinar-lp-success .columns.live-demo-webinar-thanks h1 {
+  color: var(--theme-base);
+}
+
+.live-demo-webinar-lp-success .join-community-title {
+  font-style: italic;
+}
+
+.live-demo-webinar-lp-success .join-community-subheading {
+  margin-bottom: 20px;
+}
+
+.live-demo-webinar-lp-success .join-community-btn {
+  margin-bottom: 80px;
+}
+
+.live-demo-webinar-lp-success .columns.want-more-columns p {
+  margin-bottom: 30px;
+}
+
+.live-demo-webinar-lp-success .want-more-columns a.button:not(.link):any-link {
+  background: none;
+  color: var(--theme-shade10);
+}
+
+.live-demo-webinar-lp-success .want-more-columns a.button:not(.link):any-link::after {
+  background-color: currentcolor;
+  content: '';
+  display: inline-block;
+  height: 0.8125rem;
+  margin-left: 0.5rem;
+  mask-image: url('../caret-right.svg');
+  /* stylelint-disable-next-line property-no-vendor-prefix */
+  -webkit-mask-image: url('../caret-right.svg');
+  vertical-align: middle; /* TODO: replace with flex on button? */
+  width: 0.5rem;
+}

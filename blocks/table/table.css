@@ -263,3 +263,7 @@ main .section .table-tooltip-container p.button-container {
     font-size: 26px;
   }
 }
+
+.table.vertical-align-top table td {
+  vertical-align: top;
+}

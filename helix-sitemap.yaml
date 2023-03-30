@@ -15,3 +15,8 @@ sitemaps:
       origin: https://www.bamboohr.com
       source: /resources/hr-glossary/query-index.json
       destination: /resources/hr-glossary/sitemap.xml
+
+  resources:
+      origin: https://www.bamboohr.com
+      source: /resources/query-index.json?sheet=resources
+      destination: /resources/sitemap.xml

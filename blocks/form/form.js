@@ -1,4 +1,5 @@
 import { readBlockConfig, getMetadata } from '../../scripts/scripts.js';
+import { isUpcomingEvent } from '../../scripts/webinar.js';
 
 const loadScript = (url, callback, type) => {
   const head = document.querySelector('head');
@@ -357,6 +358,7 @@ function mktoFormReset(form, moreStyles) {
   const currentForm = document.getElementById(formId);
 
   const rando = Math.floor(Math.random() * 1000000);
+  
   formEl.querySelectorAll('label[for]').forEach((labelEl) => {
     const forEl = formEl.querySelector(`[id="${labelEl.htmlFor}"]`);
     if (forEl) {
@@ -364,7 +366,7 @@ function mktoFormReset(form, moreStyles) {
       labelEl.htmlFor = newId;
       forEl.id = newId;
 
-      if (forEl.classList.contains('mktoField') && forEl.getAttribute('type') !== 'checkbox') {
+      if (forEl.classList.contains('mktoField') && forEl.getAttribute('type') === 'checkbox') {
         forEl.nextElementSibling.htmlFor = newId;
       }
     }
@@ -492,11 +494,11 @@ function loadFormAndChilipiper(formId, successUrl, chilipiper) {
         mktoFormReset(form);
         const formEl = form.getFormElem()[0];
 
-        /* Adobe Form Start event tracking when user click into the first field */
-        form.getFormElem()[0].firstElementChild.addEventListener('click', () => {
-          window.setTimeout(() => adobeEventTracking('Form Start', form.getId()), 4000);
-        });
-
+        /* Adobe Form Start event tracking when user changes the first field */		  
+		formEl.firstElementChild.addEventListener('change', () => {
+		  adobeEventTracking('Form Start', form.getId());
+		});
+		
         const readyTalkMeetingID = getMetadata('ready-talk-meeting-id');
         const readyTalkEl = formEl.querySelector('input[name="readyTalkMeetingID"]');
         if (readyTalkMeetingID && readyTalkEl) {
@@ -504,8 +506,11 @@ function loadFormAndChilipiper(formId, successUrl, chilipiper) {
         }
 
         const formSubmitText = getMetadata('form-submit-text');
+        const formSubmitBtn = formEl.querySelector('.mktoButton');
         if (formSubmitText) {
-          formEl.querySelector('.mktoButton').textContent = formSubmitText;
+          formSubmitBtn.textContent = formSubmitText;
+        } else if (window.location.pathname.includes('/webinars/')) {
+          formSubmitBtn.textContent = isUpcomingEvent() ? 'Register for this event' : 'Watch Now';
         }
 
         form.onSuccess(() => {
@@ -519,7 +524,11 @@ function loadFormAndChilipiper(formId, successUrl, chilipiper) {
           /* Adobe form complete events tracking */
           adobeEventTracking('Form Complete', form.getId());
 
-          if (successUrl && !chilipiper) window.location.href = successUrl;
+		  /* Delay success page redirection for 1 second to ensure adobe tracking pixel fires */
+		  setTimeout(() => {
+			  if (successUrl && !chilipiper) window.location.href = successUrl;
+		  },1000);
+          
           return false;
         });
       }
@@ -579,7 +588,9 @@ export default async function decorate(block) {
         entry.URL === window.location.pathname || (entry.URL.endsWith('**') && window.location.pathname.startsWith(entry.URL.split('**')[0]))
       ) {
         formUrl = entry.Form;
-        successUrl = entry.Success === '' ? `${window.location.pathname}?formSubmit=success` : entry.Success;
+        let fbTracking = '';
+        if (entry.Success === '' && window.location.pathname.includes('/resources/')) fbTracking = '&fbTracking=success.php'
+        successUrl = entry.Success === '' ? `${window.location.pathname}?formSubmit=success${fbTracking}` : entry.Success;
         chilipiper = entry.Chilipiper;
       }
     });

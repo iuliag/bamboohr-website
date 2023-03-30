@@ -45,7 +45,7 @@
 }
 
 .multi-cta-cards > div > div > h4 + p,
-.multi-cta-cards > div > div > h5 + p {
+.multi-cta-cards > div > div > h6 + p {
   border-bottom: 1px solid var(--color-gray-1);
   color: var(--color-gray-12);
   margin: 0;
@@ -176,7 +176,7 @@
   fill: var(--theme-shade5);
 }
 
-.multi-cta-cards.pricing :is(h3, h5, h6) {
+.multi-cta-cards.pricing :is(h3, h6) {
   text-align: center;
   margin: 0;
 }
@@ -189,7 +189,18 @@
   font-weight: 900;
 }
 
-.multi-cta-cards.pricing h5 {
+.multi-cta-cards.pricing h6:first-of-type {
+  margin-top: 24px;
+  color: var(--color-gray-12);
+  font-family: var(--body-font-family);
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 1px;
+}
+
+.multi-cta-cards.pricing h6 {
   color: var(--color-1-shade-5);
   font-family: var(--body-font-family);
   font-weight: 700;
@@ -197,15 +208,6 @@
   line-height: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-}
-
-.multi-cta-cards.pricing h6 {
-  margin-top: 24px;
-  color: var(--color-gray-12);
-  font-family: var(--body-font-family);
-  font-size: 15px;
-  line-height: 22px;
-  font-weight: 400;
 }
 
 @media (min-width: 600px) {

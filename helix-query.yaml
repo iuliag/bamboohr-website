@@ -168,6 +168,10 @@ indices:
         select: head > meta[name="form-submit-text"]
         value: |
           attribute(el, 'content')
+      hideFromLibrary:
+        select: head > meta[name="hide-from-library"]
+        value: |
+          attribute(el, 'content')
       robots:
         select: head > meta[name="robots"]
         value: |
@@ -284,12 +288,28 @@ indices:
         select: head > meta[property="og:image"]
         value: |
           match(attribute(el, 'content'), 'https:\/\/[^/]+(\/.*)')
-      category:
-        select: head > meta[name="category"]
+      topic:
+        select: head > meta[name="topic"]
         value: |
           attribute(el, 'content')
       eventDate:
         select: head > meta[name="event-date"]
+        value: |
+          attribute(el, 'content')
+      eventDateAndTime:
+        select: head > meta[name="event-date-and-time"]
+        value: |
+          attribute(el, 'content')
+      publicationDate:
+        select: head > meta[name="publication-date"]
+        value: |
+          attribute(el, 'content')
+      hideFromLibrary:
+        select: head > meta[name="hide-from-library"]
+        value: |
+          attribute(el, 'content')
+      mediaType:
+        select: head > meta[name="media-type"]
         value: |
           attribute(el, 'content')
       robots:
@@ -307,11 +327,11 @@ indices:
     target: /speakers/query-index
     properties:
       name:
-        select: head > meta[property="name"]
+        select: head > meta[name="name"]
         value: |
           attribute(el, 'content')
       position:
-        select: head > meta[property="position"]
+        select: head > meta[name="position"]
         value: |
           attribute(el, 'content')
       image:
@@ -320,5 +340,39 @@ indices:
           match(attribute(el, 'content'), 'https:\/\/[^/]+(\/.*)')
       bio:
         select: head > meta[name="bio"]
+        value: |
+          attribute(el, 'content')
+
+  product-updates:
+    include:
+      - '/product-updates/**'
+    target: /product-updates/query-index
+    properties:
+      title:
+        select: head > meta[property="og:title"]
+        value: |
+          attribute(el, 'content')
+      description:
+        select: head > meta[property="og:description"]
+        value: |
+          attribute(el, 'content')
+      image:
+        select: head > meta[property="og:image"]
+        value: |
+          match(attribute(el, 'content'), 'https:\/\/[^/]+(\/.*)')
+      planType:
+        select: head > meta[name="plan-type"]
+        value: |
+          attribute(el, 'content')
+      productArea:
+        select: head > meta[name="product-area"]
+        value: |
+          attribute(el, 'content')
+      publicationDate:
+        select: head > meta[name="publication-date"]
+        value: |
+          attribute(el, 'content')
+      wistiaVideoId:
+        select: head > meta[name="wistia-video-id"]
         value: |
           attribute(el, 'content')

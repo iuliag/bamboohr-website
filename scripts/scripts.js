@@ -15,134 +15,67 @@
  * @param {string} checkpoint identifies the checkpoint in funnel
  * @param {Object} data additional data for RUM sample
  */
-
 export function sampleRUM(checkpoint, data = {}) {
+  sampleRUM.defer = sampleRUM.defer || [];
+  const defer = (fnname) => {
+    sampleRUM[fnname] = sampleRUM[fnname]
+      || ((...args) => sampleRUM.defer.push({ fnname, args }));
+  };
+  sampleRUM.drain = sampleRUM.drain
+    || ((dfnname, fn) => {
+      sampleRUM[dfnname] = fn;
+      sampleRUM.defer
+        .filter(({ fnname }) => dfnname === fnname)
+        .forEach(({ fnname, args }) => sampleRUM[fnname](...args));
+    });
+  sampleRUM.always = sampleRUM.always || [];
+  sampleRUM.always.on = (chkpnt, fn) => { sampleRUM.always[chkpnt] = fn; };
+  sampleRUM.on = (chkpnt, fn) => { sampleRUM.cases[chkpnt] = fn; };
+  defer('observe');
+  defer('cwv');
+  defer('convert');
   try {
     window.hlx = window.hlx || {};
     if (!window.hlx.rum) {
       const usp = new URLSearchParams(window.location.search);
-      const weight = usp.get('rum') === 'on' ? 1 : 100; // with parameter, weight is 1. Defaults to 100.
+      const weight = (usp.get('rum') === 'on') ? 1 : 100; // with parameter, weight is 1. Defaults to 100.
       // eslint-disable-next-line no-bitwise
-      const hashCode = (s) => s.split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0);
-      const id = `${hashCode(window.location.href)}-${new Date().getTime()}-${Math.random()
-        .toString(16)
-        .substr(2, 14)}`;
+      const hashCode = (s) => s.split('').reduce((a, b) => (((a << 5) - a) + b.charCodeAt(0)) | 0, 0);
+      const id = `${hashCode(window.location.href)}-${new Date().getTime()}-${Math.random().toString(16).substr(2, 14)}`;
       const random = Math.random();
-      const isSelected = random * weight < 1;
+      const isSelected = (random * weight < 1);
       // eslint-disable-next-line object-curly-newline
-      window.hlx.rum = { weight, id, random, isSelected };
+      window.hlx.rum = { weight, id, random, isSelected, sampleRUM };
     }
-    const { random, weight, id } = window.hlx.rum;
-    if (random && random * weight < 1) {
-      const sendPing = () => {
+    const { weight, id } = window.hlx.rum;
+    if (window.hlx && window.hlx.rum && window.hlx.rum.isSelected) {
+      const sendPing = (pdata = data) => {
         // eslint-disable-next-line object-curly-newline, max-len, no-use-before-define
-        const body = JSON.stringify({
-          weight,
-          id,
-          referer: window.location.href,
-          // eslint-disable-next-line no-use-before-define
-          generation: RUM_GENERATION,
-          checkpoint,
-          ...data,
-        });
+        const body = JSON.stringify({ weight, id, referer: window.location.href, generation: window.hlx.RUM_GENERATION, checkpoint, ...data }, (key, value) => (key === 'element' ? undefined : value));
         const url = `https://rum.hlx.page/.rum/${weight}`;
         // eslint-disable-next-line no-unused-expressions
         navigator.sendBeacon(url, body);
+        // eslint-disable-next-line no-console
+        console.debug(`ping:${checkpoint}`, pdata);
       };
-      sendPing();
-      // special case CWV
-      if (checkpoint === 'cwv') {
-        // use classic script to avoid CORS issues
-        const script = document.createElement('script');
-        script.src = 'https://rum.hlx.page/.rum/web-vitals/dist/web-vitals.iife.js';
-        script.onload = () => {
-          const storeCWV = (measurement) => {
-            data.cwv = {};
-            data.cwv[measurement.name] = measurement.value;
-            sendPing();
-          };
-          // When loading `web-vitals` using a classic script, all the public
-          // methods can be found on the `webVitals` global namespace.
-          window.webVitals.getCLS(storeCWV);
-          window.webVitals.getFID(storeCWV);
-          window.webVitals.getLCP(storeCWV);
-        };
-        document.head.appendChild(script);
-      }
+      sampleRUM.cases = sampleRUM.cases || {
+        cwv: () => sampleRUM.cwv(data) || true,
+        lazy: () => {
+          // use classic script to avoid CORS issues
+          const script = document.createElement('script');
+          script.src = 'https://rum.hlx.page/.rum/@adobe/helix-rum-enhancer@^1/src/index.js';
+          document.head.appendChild(script);
+          return true;
+        },
+      };
+      sendPing(data);
+      if (sampleRUM.cases[checkpoint]) { sampleRUM.cases[checkpoint](); }
     }
-  } catch (e) {
+    if (sampleRUM.always[checkpoint]) { sampleRUM.always[checkpoint](data); }
+  } catch (error) {
     // something went wrong
   }
 }
-
-sampleRUM.blockobserver = window.IntersectionObserver
-  ? new IntersectionObserver(
-      (entries) => {
-        entries
-          .filter((entry) => entry.isIntersecting)
-          .forEach((entry) => {
-            sampleRUM.blockobserver.unobserve(entry.target); // observe only once
-            const target = sampleRUM.targetselector(entry.target);
-            const source = sampleRUM.sourceselector(entry.target);
-            sampleRUM('viewblock', { target, source });
-          });
-      },
-      { threshold: 0.25 }
-    )
-  : { observe: () => {} };
-
-sampleRUM.mediaobserver = window.IntersectionObserver
-  ? new IntersectionObserver(
-      (entries) => {
-        entries
-          .filter((entry) => entry.isIntersecting)
-          .forEach((entry) => {
-            sampleRUM.mediaobserver.unobserve(entry.target); // observe only once
-            const target = sampleRUM.targetselector(entry.target);
-            const source = sampleRUM.sourceselector(entry.target);
-            sampleRUM('viewmedia', { target, source });
-          });
-      },
-      { threshold: 0.25 }
-    )
-  : { observe: () => {} };
-
-sampleRUM.observe = (elements) => {
-  elements.forEach((element) => {
-    if (
-      element.tagName.toLowerCase() === 'img' ||
-      element.tagName.toLowerCase() === 'video' ||
-      element.tagName.toLowerCase() === 'audio' ||
-      element.tagName.toLowerCase() === 'iframe'
-    ) {
-      sampleRUM.mediaobserver.observe(element);
-    } else {
-      sampleRUM.blockobserver.observe(element);
-    }
-  });
-};
-
-sampleRUM.targetselector = (element) => {
-  let value = element.getAttribute('href') || element.currentSrc || element.getAttribute('src');
-  if (value && value.startsWith('https://')) {
-    // resolve relative links
-    value = new URL(value, window.location).href;
-  }
-  return value;
-};
-
-sampleRUM.sourceselector = (element) => {
-  if (element === document.body || element === document.documentElement || !element) {
-    return undefined;
-  }
-  if (element.id) {
-    return `#${element.id}`;
-  }
-  if (element.getAttribute('data-block-name')) {
-    return `.${element.getAttribute('data-block-name')}`;
-  }
-  return sampleRUM.sourceselector(element.parentElement);
-};
 
 /**
  * Loads a CSS file.
@@ -190,8 +123,8 @@ export function getMetadata(name) {
  function loadTemplateCSS() {
   const template = toClassName(getMetadata('template'));
   if (template) {
-    const templates = ['bhr-comparison', 'bhr-home', 'ee-solution', 'hr-glossary', 'hr-software-payroll', 'hr-unplugged',
-      'hrvs-listing', 'industry', 'industry-category', 'live-demo-webinars', 'payroll-roi', 'performance-reviews', 'pricing-quote', 'content-library', 'webinar', 'paid-landing-page'];
+    const templates = ['bhr-comparison', 'bhr-home', 'ee-solution', 'hr-glossary', 'hr-software', 'hr-software-payroll', 'hr-unplugged',
+      'hrvs-listing', 'industry', 'industry-category', 'live-demo-webinars', 'payroll-roi', 'performance-reviews', 'pricing-quote', 'content-library', 'webinar', 'paid-landing-page', 'product-updates', 'live-demo-webinar-lp'];
     if (templates.includes(template)) {
       const cssBase = `${window.hlx.serverPath}${window.hlx.codeBasePath}`;
       loadCSS(`${cssBase}/styles/templates/${template}.css`);
@@ -400,12 +333,12 @@ export function decorateBackgrounds($section) {
               (resp) => {
                 // skip if not success
                 if (resp.status !== 200) return;
-  
+
                 // put the svg in the span
                 resp.text().then((output) => {
                   const element = document.createElement('div');
                   let html = output;
-  
+
                   // get IDs
                   const matches = html.matchAll(/id="([^"]+)"/g);
                   // replace IDs
@@ -415,12 +348,12 @@ export function decorateBackgrounds($section) {
                       `${match}-id-${sectionKey}-${bgKey}-${sizeKey}-${matchKey}`
                     );
                   });
-  
+
                   element.innerHTML = html;
                   const svg = element.firstChild;
-  
+
                   svg.classList.add(size || 'desktop');
-  
+
                   background.append(svg);
                   $section.classList.add('has-bg');
                 });
@@ -463,11 +396,13 @@ export function decorateSections($main) {
       const meta = readBlockConfig(sectionMeta);
       const keys = Object.keys(meta);
       keys.forEach((key) => {
-        const styleValues = meta.style.split(',').map((t) => t.trim());
-        styleValues.forEach((style) => {
-          if (key === 'style') section.classList.add(toClassName(style));
-          else section.dataset[key] = meta[key];
-        });
+        if (key === 'style') {
+          section.classList.add(...meta.style.split(', ').map(toClassName));
+        } else if (key === 'anchor') {
+          section.id = toClassName(meta.anchor);
+        } else {
+          section.dataset[toCamelCase(key)] = meta[key];
+        }
       });
       decorateBackgrounds(section);
       sectionMeta.remove();
@@ -767,7 +702,7 @@ initHlx();
  */
 
 const LCP_BLOCKS = ['hero', 'featured-articles']; // add your LCP blocks to the list
-const RUM_GENERATION = 'project-1'; // add your RUM generation information here
+window.hlx.RUM_GENERATION = 'bamboo-rum-conversion-1'; // add your RUM generation information here
 
 sampleRUM('top');
 
@@ -780,13 +715,6 @@ window.addEventListener('error', (event) => {
 });
 
 window.addEventListener('load', () => sampleRUM('load'));
-
-document.addEventListener('click', (event) => {
-  sampleRUM('click', {
-    target: sampleRUM.targetselector(event.target),
-    source: sampleRUM.sourceselector(event.target),
-  });
-});
 
 if (!window.hlx.suppressLoadPage) loadPage(document);
 
@@ -947,7 +875,8 @@ export async function lookupPages(pathnames, collection, sheet = '') {
     hrvs: '/resources/events/hr-virtual/2022/query-index.json',
     blockInventory: '/blocks/query-index.json',
     blockTracker: `/website-marketing-resources/block-inventory-tracker.json?sheet=${sheet}`,
-    resources: `/resources/query-index.json?sheet=resources`
+    resources: `/resources/query-index.json?sheet=resources`,
+    speakers: `/speakers/query-index.json`
   };
   const indexPath = indexPaths[collection];
   const collectionCache = `${collection}${sheet}`;
@@ -962,7 +891,7 @@ export async function lookupPages(pathnames, collection, sheet = '') {
   return result;
 }
 
-export function loadHeader(header) {
+export async function loadHeader(header) {
   const queryParams = new Proxy(new URLSearchParams(window.location.search), {
     get: (searchParams, prop) => searchParams.get(prop),
   });
@@ -971,7 +900,7 @@ export function loadHeader(header) {
   const headerBlock = buildBlock(headerblockName, '');
   header.append(headerBlock);
   decorateBlock(headerBlock);
-  loadBlock(headerBlock);
+  await loadBlock(headerBlock);
 }
 
 function loadFooter(footer) {
@@ -1011,7 +940,7 @@ async function buildAutoBlocks(main) {
     let template = toClassName(getMetadata('template'));
     if (window.location.pathname.startsWith('/blog/') && !template) template = 'blog';
 
-    const templates = ['blog', 'integrations-listing', 'content-library', 'webinar'];
+    const templates = ['blog', 'integrations-listing', 'content-library', 'webinar', 'product-updates', 'live-demo-webinar-lp'];
     if (templates.includes(template)) {
       const mod = await import(`./${template}.js`);
       if (mod.default) {
@@ -1060,6 +989,92 @@ export async function decorateMain(main) {
 }
 
 /**
+ * Returns the label used for tracking link clicks
+ * @param {Element} element link element
+ * @returns link label used for tracking converstion
+ */
+function getLinkLabel(element) {
+  return element.title ? toClassName(element.title) : toClassName(element.textContent);
+}
+
+function findConversionValue(parent, fieldName) {
+  // Try to find the element by Id or Name
+  const valueElement = document.getElementById(fieldName) || parent.querySelector(`[name='${fieldName}']`);
+  if (valueElement) {
+    return valueElement.value;
+  }
+  // Find the element by the inner text of the label
+  return Array.from(parent.getElementsByTagName('label'))
+    .filter(l => l.innerText.trim().toLowerCase() === fieldName.toLowerCase())
+    .map(label => document.getElementById(label.htmlFor))
+    .filter(field => !!field)
+    .map(field => field.value)
+    .pop();
+}
+
+/**
+ * Registers conversion listeners according to the metadata configured in the document.
+ * @param {Element} parent element where to find potential event conversion sources
+ * @param {string} path fragment path when the parent element is coming from a fragment
+ */
+export async function initConversionTracking(parent, path) {
+  const conversionElements = {
+    form: () => {
+      // Track all forms
+      parent.querySelectorAll('form').forEach((element) => {
+        const section = element.closest('div.section');
+        if (section.dataset.conversionValueField) {
+          const cvField = section.dataset.conversionValueField.trim();
+          // this will track the value of the element with the id specified in the "Conversion Element" field.
+          // ideally, this should not be an ID, but the case-insensitive name label of the element.
+          sampleRUM.convert(undefined, (cvParent) => findConversionValue(cvParent, cvField), element, ['submit']);
+        }
+        const formConversionName = section.dataset.conversionName || getMetadata('conversion-name');
+        if (formConversionName) {
+          sampleRUM.convert(formConversionName, undefined, element, ['submit']);
+        } else {
+          // if no conversion name is specified, use the form path or id
+          sampleRUM.convert(path ? toClassName(path) : element.id, undefined, element, ['submit']);
+        }
+      });
+    },
+    link: () => {
+      // track all links
+      Array.from(parent.querySelectorAll('a[href]'))
+        .map(element => ({
+          element,
+          cevent: getMetadata(`conversion-name--${getLinkLabel(element)}-`) || getMetadata('conversion-name') || getLinkLabel(element),
+        }))
+        .forEach(({ element, cevent }) => {
+          sampleRUM.convert(cevent, undefined, element, ['click'])
+      });
+    },
+    'labeled-link': () => {
+      // track only the links configured in the metadata
+      const linkLabels = getMetadata('conversion-link-labels') || '';
+      const trackedLabels = linkLabels.split(',')
+        .map((p) => p.trim())
+        .map(toClassName);
+
+      Array.from(parent.querySelectorAll('a[href]'))
+        .filter((element) => trackedLabels.includes(getLinkLabel(element)))
+        .map(element => ({
+          element,
+          cevent: getMetadata(`conversion-name--${getLinkLabel(element)}-`) || getMetadata('conversion-name') || getLinkLabel(element),
+        }))
+        .forEach(({ element, cevent }) => {
+          sampleRUM.convert(cevent, undefined, element, ['click']);
+        });
+    }
+  };
+
+  const declaredConversionElements = getMetadata('conversion-element') ? getMetadata('conversion-element').split(',').map((ce) => toClassName(ce.trim())) : [];
+
+  Object.keys(conversionElements)
+    .filter((ce) => declaredConversionElements.includes(ce))
+    .forEach((cefn) => conversionElements[cefn]());
+}
+/**
  * loads everything related to Marketing technology that must be loaded eagerly
  * (e.g., Adobe Target).
  */
@@ -1107,11 +1122,27 @@ async function loadEager(doc) {
   const instantExperiment = getMetadata('instant-experiment');
   if (instantExperiment || experiment) {
     // eslint-disable-next-line import/no-cycle
-    const { runExperiment } = await import('./experimentation.js');
+    const {runExperiment} = await import('./experimentation.js');
     await runExperiment(experiment, instantExperiment);
   }
 
   if (!window.hlx.lighthouse) loadMartech();
+
+  /* This is temporary code to load our homepage convert test mid-test.
+     we are loading here to avoid the delay "long flicker" before the test page is loaded.
+     This type of test should be handled in Adobe Franklin experiments going forward.
+   */
+  // const testPaths = [
+  //   '/resources/hr-glossary/performance-review'
+  // ];
+  // const isOnTestPath = testPaths.includes(window.location.pathname);
+  // if (isOnTestPath) {
+    const $head = document.querySelector('head');
+    const $script = document.createElement('script');
+    $script.src = 'https://cdn-4.convertexperiments.com/js/10004673-10005501.js';
+    $head.append($script);
+  // }
+  /* This is the end of the temporary convert test code */
 
   decorateTemplateAndTheme();
   document.documentElement.lang = 'en';
@@ -1143,7 +1174,7 @@ async function loadLazy(doc) {
   const element = hash ? main.querySelector(hash) : false;
   if (hash && element) element.scrollIntoView();
 
-  loadHeader(header);
+  const headerloaded = loadHeader(header);
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
@@ -1153,6 +1184,9 @@ async function loadLazy(doc) {
     // eslint-disable-next-line import/no-cycle
     import('../tools/preview/experimentation-preview.js');
   }
+  sampleRUM('lazy');
+  await headerloaded;
+  initConversionTracking(document);
 }
 
 function loadDelayedOnClick() {
@@ -1181,13 +1215,13 @@ function loadDelayed() {
     '/resources/hr-glossary/',
     '/hr-solutions/industry/construction',
     '/blog/key-hr-metrics'
-  ];	
+  ];
   const isOnTestPath = testPaths.includes(window.location.pathname);
 
   if (isOnTestPath) handleLoadDelayed(); // import without delay (for testing page performance)
   // else if (!window.hlx.performance) window.setTimeout(() => handleLoadDelayed(), 4000);
   else if (!window.hlx.performance) handleLoadDelayed();
-  
+
   // load anything that can be postponed to the latest here
 }
 
@@ -1318,7 +1352,8 @@ export function addClassToParent(block) {
     'top-section-top-margin',
     'bottom-margin',
     'top-margin',
-    'laptop-small-width'
+    'laptop-small-width',
+    'variable-width'
   ];
   classes.some((c) => {
     const found = block.classList.contains(c);
@@ -1337,3 +1372,81 @@ if (params.get('performance')) {
     if (mod.default) mod.default();
   });
 }
+
+/**
+ * Registers the 'convert' function to `sampleRUM` which sends
+ * variant and convert events upon conversion.
+ * The function will register a listener for an element if listenTo parameter is provided.
+ * listenTo supports 'submit' and 'click'.
+ * If listenTo is not provided, the information is used to track a conversion event.
+ */
+sampleRUM.drain('convert', (cevent, cvalueThunk, element, listenTo = []) => {
+  async function trackConversion(celement) {
+    const MAX_SESSION_LENGTH = 1000 * 60 * 60 * 24 * 30; // 30 days
+    try {
+      // get all stored experiments from local storage (unified-decisioning-experiments)
+      const experiments = JSON.parse(localStorage.getItem('unified-decisioning-experiments'));
+      if (experiments) {
+        Object.entries(experiments)
+          .map(([experiment, { treatment, date }]) => ({ experiment, treatment, date }))
+          .filter(({ date }) => Date.now() - new Date(date) < MAX_SESSION_LENGTH)
+          .forEach(({ experiment, treatment }) => {
+            // send conversion event for each experiment that has been seen by this visitor
+            sampleRUM('variant', { source: experiment, target: treatment });
+          });
+      }
+      // send conversion event
+      const cvalue = typeof cvalueThunk === 'function' ? await cvalueThunk(element) : cvalueThunk;
+      sampleRUM('convert', { source: cevent, target: cvalue, element: celement });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log('error reading experiments', e);
+    }
+  }
+
+  function registerConversionListener(elements) {
+    // if elements is an array or nodelist, register a conversion event for each element
+    if (Array.isArray(elements) || elements instanceof NodeList) {
+      elements.forEach(e => registerConversionListener(e, listenTo, cevent, cvalueThunk));
+    } else {
+      listenTo.forEach(eventName => element.addEventListener(eventName, (e) => trackConversion(e.target)));
+    }
+  }
+
+  if (element && listenTo.length) {
+    registerConversionListener(element, listenTo, cevent, cvalueThunk);
+  } else {
+    trackConversion(element, cevent, cvalueThunk);
+  }
+});
+
+// call upon conversion events, pushes them to the datalayer
+sampleRUM.always.on('convert', (data) => {
+  const { element } = data;
+  if (element && window.digitalData) {
+    let evtDataLayer;
+    if (element.tagName === 'FORM') {
+      evtDataLayer = {
+        event: "Form Complete",
+        forms: {
+          formsComplete: 1,
+          formName: data.source, // this is the conversion event name
+          conversionValue: data.target,
+          formId: element.id,
+          formsType: ""
+        }
+      };
+    } else if (element.tagName === 'A') {
+      evtDataLayer = {
+        event: "Link Click",
+        eventData: {
+          linkName: data.source, // this is the conversion event name
+          linkText: element.innerHTML,
+          linkHref: element.href
+        }
+      };
+    }
+    console.debug('push to datalayer', evtDataLayer);
+    window.digitalData.push(evtDataLayer);
+  }
+});

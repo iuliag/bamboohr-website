@@ -26,6 +26,26 @@ function addBreakpointImages(col, block) {
   }
 }
 
+function addButtonClasses(col, block) {
+  const noLeftButtons = block.classList.contains('no-left-buttons');
+    
+  if (!noLeftButtons) {
+    const isButtonLinks = block.classList.contains('button-style-link');
+    const buttons = col.querySelectorAll('a.button');
+    if (isButtonLinks) {
+      buttons.forEach((button) => {
+        button.classList.add('link');
+        button.parentElement.classList.add('left');
+      });
+    } else {
+      buttons.forEach((button) => {
+        button.classList.add('small');
+        button.parentElement.classList.add('left');
+      });
+    }
+  }
+}
+
 function addIconBtnClass(buttonContainer, icon) {
   const iconClass = [...icon.classList].find(c => c.startsWith('icon-'));
   const iconName = iconClass.substring(5);
@@ -173,23 +193,8 @@ function setupColumns(cols, splitVals, block, needToLoadWistiaCSS) {
       hasImage = true;
       addBreakpointImages(col, block);
     } else col.classList.add('non-img-col');
-    const noLeftButtons = block.classList.contains('no-left-buttons');
     
-    if (!noLeftButtons) {
-      const isButtonLinks = block.classList.contains('button-style-link');
-      const buttons = col.querySelectorAll('a.button');
-      if (isButtonLinks) {
-        buttons.forEach((button) => {
-          button.classList.add('link');
-          button.parentElement.classList.add('left');
-        });
-      } else {
-        buttons.forEach((button) => {
-          button.classList.add('small');
-          button.parentElement.classList.add('left');
-        });
-      }
-    }
+    addButtonClasses(col, block);
 
     addIconContainer(col);
   });
@@ -253,13 +258,7 @@ export default function decorate(block) {
       setupColumns(cols, splitVals, block, true);
     }
   } else if (cols.length === 1) {
-    if (block.classList.contains('button-style-link')) {
-      const buttons = block.querySelectorAll('a.button');
-      buttons.forEach((button) => {
-        button.classList.add('link');
-        button.parentElement.classList.add('left');
-      });
-    }
+    addButtonClasses(cols[0], block);
   } else if (block.classList.contains('grid')) {
     const rows = [...block.children];
     let allCols = [];

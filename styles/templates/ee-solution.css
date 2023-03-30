@@ -7,22 +7,6 @@
     margin: 0;
 }
 
-.ee-solution .default-content-wrapper a.button:any-link {
-    background-color: var(--theme-shade10);
-    font-family: var(--body-font-family);
-    font-size: .9375rem;
-    letter-spacing: .0313rem;
-    line-height: 1.3333;
-    margin: 0;
-    padding: .625rem 1.875rem;
-    white-space: normal;
-    transition: background-color .25s ease-in-out;
-}
-
-.ee-solution .default-content-wrapper a.button:any-link:hover {
-    background-color: var(--theme-shade15);
-}
-
 /* column overrides */
 
 @media (max-width: 599px) {
@@ -93,3 +77,11 @@
     bottom: auto;
     top: 0;
 }
+
+/* hero overrides */
+@media (max-width: 750px) {
+    .ee-solution .hero.button-inline .button-container a:any-link {
+        margin: 6px 0;
+    }
+}
+

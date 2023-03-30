@@ -524,7 +524,7 @@ main .multi-element p {
     font-family: var(--body-font-family);
     font-weight: 700;
     font-size: 12px;
-    line-height: 5px;
+    line-height: 15px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
 }

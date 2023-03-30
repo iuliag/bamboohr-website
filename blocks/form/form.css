@@ -78,12 +78,6 @@ main .form option {
   padding: 2px;
 }
 
-main .form.gray select,
-main .form.gray textarea,
-main .form.gray input {
-  background-color: var(--color-gray-1);
-}
-
 main .form select[multiple] {
   height: 100px;
   background: var(--color-white);
@@ -95,6 +89,10 @@ main .form input[type='radio'] {
   margin-right: 10px;
   height: 13px;
   width: 13px;
+}
+
+main .form .form-checkbox-option {
+  margin-right: 10px;
 }
 
 main .form .form-radio-option:not(:last-child),
@@ -148,10 +146,6 @@ main .form .form-radio-option > label::before {
   background-color: var(--color-white);
   border-radius: 50%;
   box-sizing: border-box;
-}
-
-main .form.gray .form-checkbox-option > label::before {
-  background-color: var(--color-gray-1);
 }
 
 main .form .form-checkbox-option input:checked + label::after {
@@ -239,6 +233,7 @@ main .form .form-gdpr-text,
   font-size: 14px;
   line-height: 1.5;
   font-weight: 400;
+  width: 100% !important;
 }
 
 main .form .mktoForm {
@@ -264,7 +259,6 @@ main .form .mktoForm .mktoLabel {
   width: 100% !important;
 }
 
-/* un-comment this when clearbit is disabled and fields order is updated
 @media screen and (min-width: 600px) {
   main .form .mktoForm {
     display: flex;
@@ -282,7 +276,7 @@ main .form .mktoForm .mktoLabel {
   main .form .mktoForm .mktoFormRow.form-input-width50 {
     width: calc(50% - 8px);
   }
-} */
+}
 
 main .form .mktoForm .mktoErrorMsg {
   position: absolute;
@@ -295,8 +289,11 @@ main .form .mktoForm .mktoErrorMsg {
   margin-top: 2px;
 }
 
-main .form .mktoForm .mktoAsterix {
-  display: none;
+main .form .mktoForm .mktoAsterix,
+main .form .mktoForm .mktoOffset,
+main .form .mktoForm .mktoGutter,
+main .form .mktoForm .mktoClear {
+  display: none !important;
 }
 
 main .form .form-submit-wrapper .button,
@@ -354,7 +351,7 @@ main .form .form-col p strong {
   color: var(--theme-shade5);
 }
 
-@media (max-width: 1199px) {
+@media (min-width: 600px) and (max-width: 1199px) {
   main .form.has-content .form-col {
     max-width: 83.33%;
     margin: 0 auto;
@@ -382,6 +379,13 @@ main .form.white-container .form-col {
   background-image: linear-gradient(rgb(0 0 0 / 0%) 50%, var(--secondary-theme-tint10) 0);
 }
 
+main .form.has-content .content-col {
+  margin-bottom: 30px;
+}
+
+main .form.has-content .content-col h1 {
+  font-style: normal;
+}
 
 @media (min-width: 1200px) {
   main .form.has-content > div {
@@ -392,6 +396,7 @@ main .form.white-container .form-col {
 
   main .form.has-content .content-col {
     grid-column: span 6;
+    margin-bottom: 0;
   }
 
   main .form.has-content .form-col {
@@ -420,119 +425,6 @@ main .form .form-col .form-logos img {
   flex: 0 0 auto;
   width: 33.33%;
   max-width: 120px;
-}
-
-/* old-style, remove once we don't need */
-main .form.old-style label {
-  display: block;
-  color: var(--color-gray-8);
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.5;
-}
-
-main .form.old-style .required {
-  margin-left: 4px;
-  color: var(--color-2);
-}
-
-main .form.old-style span.error {
-  color: var(--color-2);
-}
-
-main .form.old-style form > div {
-  margin: 20px 0;
-}
-
-main .form.old-style select,
-main .form.old-style textarea,
-main .form.old-style input {
-  box-sizing: border-box;
-  width: 100%;
-  height: 60px;
-  margin-top: 8px;
-  margin-left: 1px;
-  padding: 5px 20px;
-  border: 2px solid var(--color-gray-1);
-  border-radius: 3px;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-main .form.old-style select {
-  appearance: none;
-  background: var(--color-white) url('./chevron-down.svg') no-repeat calc(100% - 20px) 50%;
-}
-
-main .form.old-style.gray select {
-  background-color: var(--color-gray-1);
-}
-
-main .form.old-style textarea {
-  height: 160px;
-}
-
-main .form.old-style select:focus,
-main .form.old-style textarea:focus,
-main .form.old-style input:focus,
-main .form.old-style .mktoForm .mktoInvalid:focus {
-  border-color: var(--color-5);
-  border-image-source: none;
-}
-
-main .form.old-style .error select,
-main .form.old-style .error textarea,
-main .form.old-style .error input,
-main .form.old-style .mktoForm .mktoInvalid,
-main .form.old-style .mktoForm .mktoInvalid.form-checkbox-option label::before {
-  border-image-source: none;
-  border-color: var(--color-2);
-}
-
-main .form.old-style option {
-  box-sizing: border-box;
-  display: block;
-  padding: 2px;
-}
-
-main .form.old-style .mktoForm .mktoButton,
-main .form.old-style .form-submit-wrapper .button {
-  background-color: var(--theme-shade10);
-  margin-top: 30px;
-}
-
-main .form.old-style .mktoForm .mktoButton:hover,
-main .form.old-style .form-submit-wrapper .button:hover {
-  background-color: var(--theme-shade10);
-}
-
-main .form.old-style .form-col p {
-  margin: 1em 0;
-}
-
-main .form.old-style .form-col strong {
-  color: var(--theme-shade10);
-}
-
-main .form.old-style .mktoForm .mktoInvalid:focus {
-  border-color: var(--color-5);
-}
-
-main .form.old-style .bhrForm__partnerDisclaimer {
-  font-size: 14px;
-  line-height: 1.5;
-  font-weight: 400;
-}
-
-main .form.old-style .bhrForm__partnerDisclaimer a {
-  text-decoration: none;
-  font-style: normal;
-}
-
-main .form.old-style .mktoForm .mktoErrorMsg,
-main .form.old-style .mktoForm .form-msg {
-  display: none;
 }
 
 main .form.with-google-map .content-col iframe {
